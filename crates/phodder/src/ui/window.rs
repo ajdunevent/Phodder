@@ -754,8 +754,12 @@ pub fn build_window(
     }
     {
         let app = app.clone();
+        let tokio_handle = tokio_handle.clone();
         let quit_action = gtk4::gio::SimpleAction::new("quit", None);
+        // Closing the window leaves the service to Run in Background; Quit
+        // stops both.
         quit_action.connect_activate(move |_, _| {
+            super::client::quit_service(&tokio_handle);
             app.quit();
         });
         window.add_action(&quit_action);

@@ -232,6 +232,11 @@ async fn backend(mut command_rx: tokio::sync::mpsc::UnboundedReceiver<Incoming>,
             Some(incoming) = iface_rx.recv() => incoming,
             else => break,
         };
+        if matches!(incoming.command, ServiceCommand::Quit) {
+            tracing::info!("quitting at the window's request");
+            let _ = main_tx.send(MainEvent::Quit).await;
+            continue;
+        }
         commands::handle(incoming.command, incoming.reply, &core, &download_tx, &db_path);
     }
     Ok(())

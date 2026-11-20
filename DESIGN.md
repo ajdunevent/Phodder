@@ -77,7 +77,9 @@ service files are installed from `data/dbus-1/`:
 **Lifetime**: a second service exits at once (the name is claimed
 before the player starts). With **Run in Background** off, the service
 stops when its last window closes, as closing the window always quit
-before. **Launch on Startup** requires Run in Background and starts only
+before. Quit (main menu, Ctrl+Q) stops the service whatever the setting;
+the window sends it with no-auto-start, as it does Goodbye, so neither
+starts a stopped service again through D-Bus activation. **Launch on Startup** requires Run in Background and starts only
 the service; under Flatpak both ask the Background portal
 (`org.freedesktop.portal.Background`) and revert the switch if refused.
 

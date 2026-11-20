@@ -43,6 +43,11 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.1.1" date="2026-11-19">
+      <description>
+        <p>Quit now also stops Phodder in the background.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-11-19">
       <description>
         <p>First release.</p>

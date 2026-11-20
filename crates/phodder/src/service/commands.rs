@@ -37,6 +37,8 @@ pub enum ServiceCommand {
     ReevaluateSubscriptionRetention(i64),
     ReevaluateQueuedEpisodesAgainstFilters(i64),
     NetworkChanged(bool),
+    /// Ends the service whatever Run in Background says.
+    Quit,
 }
 
 pub type Reply = tokio::sync::oneshot::Sender<Result<(), String>>;
@@ -96,6 +98,8 @@ pub fn handle(
                 }
             });
         }
+        // Handled by the service's command loop.
+        C::Quit => {}
         C::SetPlayed { episode_id, played } => {
             if played {
                 core.player.send_stop_if_current(vec![episode_id]);

@@ -7,6 +7,8 @@ use super::UiUpdate;
 use crate::service::commands::{Reply, ServiceCommand};
 use crate::service::{BUS_NAME, CALLS_INTERFACE, INTERFACE, OBJECT_PATH};
 use futures_util::StreamExt;
+use zbus::proxy::MethodFlags;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 
 /// Longer than the service's `POLL_WAIT`, so a call that times out here
@@ -14,6 +16,9 @@ use std::sync::{Arc, OnceLock};
 const UPDATES_CALL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 static CLIENT: OnceLock<Arc<ServiceClient>> = OnceLock::new();
+
+/// Set by Quit, so the service that was asked to stop isn't started again.
+static QUITTING: AtomicBool = AtomicBool::new(false);
 
 pub struct ServiceClient {
     connection: zbus::Connection,
@@ -32,7 +37,7 @@ impl ServiceClient {
             tokio::spawn(async move {
                 while let Some(change) = owner_changes.next().await {
                     let Ok(args) = change.args() else { continue };
-                    if args.new_owner().is_none() {
+                    if args.new_owner().is_none() && !QUITTING.load(Ordering::SeqCst) {
                         tracing::warn!("the Phodder service went away; starting it again");
                         if let Err(e) = client.ensure_service().await {
                             tracing::error!("{e:#}");
@@ -143,9 +148,46 @@ impl ServiceClient {
 /// Tells the service this window is closing, so it can stop at once when
 /// Run in Background is off. Called on the GTK thread as the window quits.
 pub fn say_goodbye(tokio_handle: &tokio::runtime::Handle) {
-    let Some(client) = CLIENT.get() else { return };
-    let call = client.connection.call_method(Some(BUS_NAME), OBJECT_PATH, Some(INTERFACE), "Goodbye", &());
-    if let Err(e) = tokio_handle.block_on(async { tokio::time::timeout(std::time::Duration::from_secs(1), call).await }) {
-        tracing::warn!("the Phodder service didn't answer the window's goodbye: {e}");
+    if QUITTING.load(Ordering::SeqCst) {
+        return;
     }
+    let Some(client) = CLIENT.get() else { return };
+    // A call to a stopped service would start it through D-Bus activation.
+    let call = call_without_starting(&client.connection, "Goodbye", false, &());
+    match tokio_handle.block_on(async { tokio::time::timeout(std::time::Duration::from_secs(1), call).await }) {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => tracing::warn!("couldn't say goodbye to the Phodder service: {e}"),
+        Err(_) => tracing::warn!("the Phodder service didn't answer the window's goodbye"),
+    }
+}
+
+/// Stops the service along with the window. Called on the GTK thread by
+/// Quit; it waits until the message is written so it isn't lost when the
+/// process exits.
+pub fn quit_service(tokio_handle: &tokio::runtime::Handle) {
+    QUITTING.store(true, Ordering::SeqCst);
+    let Some(client) = CLIENT.get() else { return };
+    let Ok(json) = serde_json::to_string(&ServiceCommand::Quit) else { return };
+    let body = (json,);
+    let send = call_without_starting(&client.connection, "Command", true, &body);
+    match tokio_handle.block_on(async { tokio::time::timeout(std::time::Duration::from_secs(1), send).await }) {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => tracing::warn!("couldn't ask the Phodder service to quit: {e}"),
+        Err(_) => tracing::warn!("timed out asking the Phodder service to quit"),
+    }
+}
+
+async fn call_without_starting<B>(connection: &zbus::Connection, method: &str, no_reply: bool, body: &B) -> zbus::Result<()>
+where
+    B: serde::Serialize + zbus::zvariant::DynamicType,
+{
+    let flags = if no_reply { MethodFlags::NoAutoStart | MethodFlags::NoReplyExpected } else { MethodFlags::NoAutoStart.into() };
+    let proxy: zbus::Proxy<'_> = zbus::proxy::Builder::new(connection)
+        .destination(BUS_NAME)?
+        .path(OBJECT_PATH)?
+        .interface(INTERFACE)?
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await?;
+    proxy.call_with_flags::<_, _, ()>(method, flags, body).await.map(|_| ())
 }
