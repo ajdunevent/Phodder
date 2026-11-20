@@ -32,7 +32,7 @@ layers = [(SWAP[c], polygon(d, mirror=True)) for _, c, d in blades]
 layers += [(c, polygon(d)) for _, c, d in blades]
 
 # Everything below the tray rim is hidden by the tray.
-visible_area = box(0, 0, 128, 96)
+visible_area = box(0, 0, 128, g["BASE_Y"] - 4)
 covered = None
 pieces = {c: [] for c in COLORS}
 for colour, poly in reversed(layers):
@@ -44,7 +44,7 @@ for colour, poly in reversed(layers):
     covered = poly if covered is None else covered.union(poly)
 
 regions = {c: unary_union(p).simplify(0.02) for c, p in pieces.items()}
-silhouette = unary_union([poly for _, poly in layers]).intersection(box(0, 0, 128, 100)).simplify(0.02)
+silhouette = unary_union([poly for _, poly in layers]).intersection(box(0, 0, 128, g["BASE_Y"])).simplify(0.02)
 
 # The largest colour is painted as the whole silhouette underneath, so antialiased
 # edges between regions never let the background show through as a seam.

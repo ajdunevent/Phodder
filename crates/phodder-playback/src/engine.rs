@@ -258,11 +258,14 @@ impl Engine {
 
     async fn play(&mut self) -> anyhow::Result<bool> {
         match self.phase {
-            Phase::Idle => {
-                if !self.advance(&[], true).await? {
-                    anyhow::bail!("nothing queued to play");
+            Phase::Idle => match self.current_id() {
+                Some(id) => self.load_episode(id, true).await?,
+                None => {
+                    if !self.advance(&[], true).await? {
+                        anyhow::bail!("nothing queued to play");
+                    }
                 }
-            }
+            },
             Phase::Loading { ref mut play_when_ready, .. } => *play_when_ready = true,
             Phase::Ready { playing: true } => {}
             Phase::Ready { playing: false } => {
@@ -549,6 +552,10 @@ impl Engine {
             None => target_ms,
         };
         match self.phase {
+            Phase::Idle if self.current.is_some() => {
+                self.position_ms = target;
+                self.position_at = Instant::now();
+            }
             Phase::Idle => anyhow::bail!("nothing loaded to seek in"),
             Phase::Loading { stage, .. } => {
                 self.position_ms = target;
@@ -773,6 +780,10 @@ impl Engine {
         let Some(id) = self.current_id() else { return };
         match self.phase {
             Phase::Idle => {}
+            Phase::Loading { .. } if !file_problem && self.recently_errored(id) => {
+                tracing::warn!("reloading episode {id} after an error failed too; holding it until play is pressed");
+                self.hold_loaded().await;
+            }
             Phase::Loading { play_when_ready, .. } => {
                 // The file can't be played; skip it for the rest of the session.
                 self.failed.insert(id);
@@ -799,19 +810,46 @@ impl Engine {
                 // one reload at the last known position.
                 let can_retry = self.last_error_retry.is_none_or(|(eid, at)| eid != id || at.elapsed() > ERROR_RETRY_WINDOW);
                 self.persist().await;
-                if can_retry {
+                if file_problem && !can_retry {
+                    let _ = self.events.send(Event::EpisodeFailed { episode_id: id, message, file_problem: false, requested: false });
+                    self.stop().await;
+                } else if can_retry {
                     self.last_error_retry = Some((id, Instant::now()));
                     if let Err(e) = self.load_episode(id, playing).await {
                         tracing::error!("failed to reload episode {id} after error: {e:#}");
-                        self.clear_loaded();
-                        self.publish();
+                        if crate::is_file_missing(&e) {
+                            self.clear_loaded();
+                            self.publish();
+                        } else {
+                            self.hold_loaded().await;
+                        }
                     }
                 } else {
-                    let _ = self.events.send(Event::EpisodeFailed { episode_id: id, message, file_problem: false, requested: false });
-                    self.stop().await;
+                    tracing::warn!("episode {id} failed again within {ERROR_RETRY_WINDOW:?}; holding it until play is pressed");
+                    self.hold_loaded().await;
                 }
             }
         }
+    }
+
+    /// True within ERROR_RETRY_WINDOW of a runtime error in `id`, when a load
+    /// of it is the reload that error started.
+    fn recently_errored(&self, id: i64) -> bool {
+        self.last_error_retry.is_some_and(|(eid, at)| eid == id && at.elapsed() <= ERROR_RETRY_WINDOW)
+    }
+
+    /// Takes the pipeline down but keeps the episode and position, paused,
+    /// so the player still shows it; play reloads it. For errors from the
+    /// audio output, such as a Bluetooth device going away mid-reload.
+    async fn hold_loaded(&mut self) {
+        self.pipeline.unload();
+        self.phase = Phase::Idle;
+        self.position_at = Instant::now();
+        self.seek_in_flight = None;
+        self.seek_queued = false;
+        self.paused_at_ms = None;
+        self.persist().await;
+        self.publish();
     }
 
     async fn on_tick(&mut self) {
@@ -884,6 +922,7 @@ impl Engine {
     fn publish(&mut self) {
         self.last_publish = Instant::now();
         let status = match self.phase {
+            Phase::Idle if self.current.is_some() => Status::Paused,
             Phase::Idle => Status::Stopped,
             Phase::Loading { play_when_ready: true, .. } | Phase::Ready { playing: true } => Status::Playing,
             Phase::Loading { .. } | Phase::Ready { playing: false } => Status::Paused,

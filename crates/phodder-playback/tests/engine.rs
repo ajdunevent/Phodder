@@ -721,3 +721,32 @@ async fn a_saved_web_page_is_reported_as_a_file_problem() {
     .expect("the page failed to play");
     assert!(reported);
 }
+
+/// A Bluetooth device going away errors the audio output; when the reload
+/// errors too, the episode must stay loaded and paused, not vanish from the
+/// player.
+#[tokio::test]
+async fn repeated_output_errors_keep_the_episode_loaded() {
+    let mut f = Fixture::new();
+    let a = f.episode("A", &f.audio_file("a.mp3", 45), true).await;
+    let sink = gst::ElementFactory::make("fakesink").property("sync", true).build().unwrap();
+    let player = Player::spawn(Config { db: f.db.clone(), audio_sink: Some(sink.clone()) }).unwrap();
+    let output_gone = |sink: &gst::Element| {
+        let message = gst::message::Error::builder(gst::ResourceError::Write, "output device disconnected").src(sink).build();
+        assert!(sink.post_message(message).is_ok());
+    };
+    player.play_episode(a).await.unwrap();
+    wait_for(&player, "A playing", 5, playing(a)).await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    output_gone(&sink);
+    wait_for(&player, "A reloaded and playing", 6, |s| playing(a)(s) && s.position_ms >= 1500).await;
+    output_gone(&sink);
+    let held = wait_for(&player, "A held, paused", 6, |s| s.status == Status::Paused && !s.loading).await;
+    assert_eq!(held.episode.map(|e| e.id), Some(a));
+    assert!(held.position_ms >= 1500, "A kept its place: {}", held.position_ms);
+
+    player.play().await.unwrap();
+    let resumed = wait_for(&player, "A playing again", 6, playing(a)).await;
+    assert!(resumed.position_ms >= 1500, "A resumed in place: {}", resumed.position_ms);
+}

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: phodder\n"
 "Report-Msgid-Bugs-To: https://github.com/\n"
-"POT-Creation-Date: 2026-11-19 20:01-0600\n"
+"POT-Creation-Date: 2026-11-20 13:58-0600\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -26,7 +26,7 @@ msgstr ""
 msgid "Feed refresh failed: {error}"
 msgstr ""
 
-#: crates/phodder/src/downloader.rs:396
+#: crates/phodder/src/downloader.rs:394
 #: crates/phodder/src/service/commands.rs:157
 msgid "Download pass failed: {error}"
 msgstr ""
@@ -75,7 +75,7 @@ msgstr ""
 msgid "Couldn't read the feed"
 msgstr ""
 
-#: crates/phodder/src/main.rs:240
+#: crates/phodder/src/main.rs:272
 msgid "Couldn't start playback and downloads: {error}"
 msgstr ""
 
@@ -1535,7 +1535,7 @@ msgid "Sync with Nextcloud GPodder Sync"
 msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:17
-#: data/net.dunevent.Phodder.metainfo.xml:59
+#: data/net.dunevent.Phodder.metainfo.xml:69
 msgid "Pauses for calls and resumes when Bluetooth reconnects"
 msgstr ""
 
@@ -1543,26 +1543,44 @@ msgstr ""
 msgid "Phodder contributors"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:48
-msgid "Quit now also stops Phodder in the background."
+#: data/net.dunevent.Phodder.metainfo.xml:49
+msgid "Phodder no longer leaves a hidden window running in the background."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:53
-msgid "First release."
+#: data/net.dunevent.Phodder.metainfo.xml:50
+msgid ""
+"Phodder in the background gives memory back after refreshing large feeds."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:55
-msgid "A queue ordered by group, so daily shows come first"
+#: data/net.dunevent.Phodder.metainfo.xml:51
+msgid ""
+"The player keeps showing the episode when a Bluetooth device disconnects."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:56
-msgid "Background refreshes and downloads, with filters and expiry per podcast"
-msgstr ""
-
-#: data/net.dunevent.Phodder.metainfo.xml:57
-msgid "Chapters, automatic chapter skipping and transcripts"
+#: data/net.dunevent.Phodder.metainfo.xml:52
+msgid "The app icon is taller, to match other icons of its shape."
 msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:58
+msgid "Quit now also stops Phodder in the background."
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:63
+msgid "First release."
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:65
+msgid "A queue ordered by group, so daily shows come first"
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:66
+msgid "Background refreshes and downloads, with filters and expiry per podcast"
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:67
+msgid "Chapters, automatic chapter skipping and transcripts"
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:68
 msgid "Sync with Nextcloud GPodder Sync and gpodder.net"
 msgstr ""

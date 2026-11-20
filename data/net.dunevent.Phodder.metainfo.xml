@@ -43,6 +43,16 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.1.2" date="2026-11-20">
+      <description>
+        <ul>
+          <li>Phodder no longer leaves a hidden window running in the background.</li>
+          <li>Phodder in the background gives memory back after refreshing large feeds.</li>
+          <li>The player keeps showing the episode when a Bluetooth device disconnects.</li>
+          <li>The app icon is taller, to match other icons of its shape.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.1" date="2026-11-19">
       <description>
         <p>Quit now also stops Phodder in the background.</p>

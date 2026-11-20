@@ -79,13 +79,19 @@ before the player starts). With **Run in Background** off, the service
 stops when its last window closes, as closing the window always quit
 before. Quit (main menu, Ctrl+Q) stops the service whatever the setting;
 the window sends it with no-auto-start, as it does Goodbye, so neither
-starts a stopped service again through D-Bus activation. **Launch on Startup** requires Run in Background and starts only
+starts a stopped service again through D-Bus activation.
+Any D-Bus call to `net.dunevent.Phodder` starts the window process, and
+its window is built at startup, hidden, so the process would stay with no
+window; it quits if nothing shows the window within 10 s. **Launch on Startup** requires Run in Background and starts only
 the service; under Flatpak both ask the Background portal
 (`org.freedesktop.portal.Background`) and revert the switch if refused.
 
 **Memory tuning**: `M_ARENA_MAX` is 2 (set before any thread starts) and
 each process's Tokio runtime has two workers, since glibc otherwise
-grows an allocator arena per allocating thread.
+grows an allocator arena per allocating thread. The service calls
+`malloc_trim` after each refresh and download pass: glibc otherwise keeps
+what parsing large feeds freed, and with five 7 MB feeds the service
+stayed at 152 MB instead of 79 MB.
 
 **History**: Phodder began as four processes (`phodder-player`,
 `-coordinator`, `-downloader` and the UI) and was collapsed into one,
@@ -441,6 +447,11 @@ choices worth remembering:
   playback this watcher paused resumes, and only for the same device.
   Switching output away from a Bluetooth device by hand while playing
   pauses too.
+- An output error (a device vanishing mid-stream) reloads the episode at
+  its position once. A second error within 30 s, or one during that
+  reload, keeps the episode loaded and paused with the pipeline down, so
+  the player still shows it; Play reloads it. Unloading it instead made
+  the player show "Nothing playing" until the next resume.
 - Ducking: the stream is labeled `media.role` = music (PulseAudio) /
   Music (PipeWire), so the sound server's role policy can lower it for
   notifications, navigation prompts or a screen reader. Phodder does no
@@ -497,8 +508,9 @@ choices worth remembering:
   individual blades in three GNOME greens plus a mirrored, colour-swapped
   copy behind them. `data/icons/source/gen.py` lays out the blades and
   `flatten.py` (needs shapely) merges them into one path per colour and
-  writes the installed SVG. The play button's colour isn't settled; it is
-  the last white path in the SVG.
+  writes the installed SVG. It spans y 4 to 120, as tall as GNOME's other
+  square-ish icons; the play button's colour isn't settled, and it is the
+  last white path in the SVG.
 - `oo7` chosen specifically because its sandboxed file-backend (via the
   `org.freedesktop.portal.Secrets` portal) avoids classic libsecret's
   known Flatpak compatibility problems — one code path works correctly

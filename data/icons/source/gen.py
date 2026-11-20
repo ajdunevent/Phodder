@@ -4,11 +4,15 @@ from pathlib import Path
 rnd = random.Random(7)
 LIFT = 4
 COLORS = ["#26a269", "#33d17a", "#8ff0a4"]
-BASE_Y = 100
+BASE_Y = 104
+# Blade heights were drawn for a rim at y=100; the tray and grass were then
+# stretched to fill the canvas as tall as GNOME's other square-ish icons.
+HEIGHT_SCALE = 1.1
 
 def blade(bx, width, tx, ty, bend):
     """Path for a tapered blade rooted on the tray, bowed sideways by `bend`."""
     l, r = bx - width / 2, bx + width / 2
+    ty = BASE_Y - (100 - ty) * HEIGHT_SCALE
     my = (BASE_Y + ty) / 2
     return (f"M{l:.1f} {BASE_Y} Q{(l + tx) / 2 + bend:.1f} {my:.1f} {tx:.1f} {ty:.1f} "
             f"Q{(r + tx) / 2 + bend:.1f} {my:.1f} {r:.1f} {BASE_Y} Z")
@@ -45,9 +49,9 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewB
   </g>
   {grass}
   <path fill="#ffffff" stroke="#ffffff" stroke-width="8" stroke-linejoin="round" d="M56 52 L56 80 L80 66 Z"/>
-  <path fill="#3d3846" d="M14 96 H114 L107 114 Q106 116 103 116 H25 Q22 116 21 114 Z"/>
-  <path fill="#5e5c64" d="M14 96 H114 L108.5 110 Q107.5 112 105 112 H23 Q20.5 112 19.5 110 Z"/>
-  <rect x="14" y="95" width="100" height="3" rx="1.5" fill="#9a9996"/>
+  <path fill="#3d3846" d="M14 100 H114 L107 118 Q106 120 103 120 H25 Q22 120 21 118 Z"/>
+  <path fill="#5e5c64" d="M14 100 H114 L108.5 114 Q107.5 116 105 116 H23 Q20.5 116 19.5 114 Z"/>
+  <rect x="14" y="99" width="100" height="3" rx="1.5" fill="#9a9996"/>
 </svg>
 '''
 open(Path(__file__).with_name("layered.svg"), "w").write(svg)

@@ -388,13 +388,13 @@ async fn refresh_and_download(
         }
     }
     // Episodes found meanwhile stay queued for the next pass that allows it.
-    if !download {
-        return;
+    if download {
+        if let Err(e) = download_queued_episodes(db, download_tx, ui_tx).await {
+            tracing::error!("download pass failed: {e}");
+            let _ = ui_tx.send(crate::ui::UiUpdate::Error(crate::i18n::gettext_f("Download pass failed: {error}", &[("error", &e.to_string())]))).await;
+        }
     }
-    if let Err(e) = download_queued_episodes(db, download_tx, ui_tx).await {
-        tracing::error!("download pass failed: {e}");
-        let _ = ui_tx.send(crate::ui::UiUpdate::Error(crate::i18n::gettext_f("Download pass failed: {error}", &[("error", &e.to_string())]))).await;
-    }
+    crate::release_free_memory();
 }
 
 async fn refresh_all_subscriptions(

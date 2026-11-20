@@ -61,6 +61,10 @@ pub(crate) fn db_path() -> std::path::PathBuf {
 
 pub(crate) const RUN_IN_BACKGROUND_SETTING: &str = "run_in_background";
 
+/// How long the window process waits for a request to show the window
+/// before deciding it was started by a stray D-Bus call.
+const STRAY_START_GRACE_SECS: u32 = 10;
+
 /// Launch on Startup requires it. Unset means on only if Launch on Startup
 /// already is, since autostart from before this setting implied it.
 pub(crate) fn run_in_background() -> bool {
@@ -161,6 +165,20 @@ fn limit_allocator_arenas() {
     }
 }
 
+/// Hands the allocator's free memory back to the system. glibc keeps what a
+/// burst of work freed (parsing large feeds, decoding artwork) and returns
+/// it only from the top of the heap, so without this the service stays at
+/// its peak size.
+pub(crate) fn release_free_memory() {
+    extern "C" {
+        fn malloc_trim(pad: usize) -> i32;
+    }
+    // SAFETY: malloc_trim only returns free pages; it's safe from any thread.
+    unsafe {
+        malloc_trim(0);
+    }
+}
+
 /// Two workers for either role: the work is mostly waiting on the network,
 /// the disk and D-Bus.
 pub(crate) fn build_runtime() -> tokio::runtime::Runtime {
@@ -198,7 +216,21 @@ fn run_ui() -> anyhow::Result<()> {
             let bridge = ui::create_bridge();
             let tokio_handle = spawn_ui_runtime(bridge.command_rx, bridge.update_tx);
             *runtime.borrow_mut() = Some(tokio_handle.clone());
-            *window.borrow_mut() = Some(ui::build_window(app, bridge.command_tx, bridge.update_rx, &db_path(), tokio_handle));
+            let built = ui::build_window(app, bridge.command_tx, bridge.update_rx, &db_path(), tokio_handle);
+            // Any D-Bus call to the app's name starts this process, and a hidden
+            // window holds it open; only activate, a command line or show-podcast
+            // presents the window, and they arrive straight after startup.
+            let app_weak = app.downgrade();
+            let window_weak = built.downgrade();
+            gtk4::glib::timeout_add_seconds_local_once(STRAY_START_GRACE_SECS, move || {
+                if let (Some(app), Some(window)) = (app_weak.upgrade(), window_weak.upgrade()) {
+                    if !window.is_visible() {
+                        tracing::info!("started without being asked to show the window; quitting");
+                        app.quit();
+                    }
+                }
+            });
+            *window.borrow_mut() = Some(built);
         });
     }
     let present = move || {
