@@ -22,15 +22,11 @@ so it stays light on memory.
 
 ## Install
 
-Phodder is published as a Flatpak through
-[AJHub](https://ajdunevent.github.io/AJHub/) (x86_64 and aarch64) and
-[FuriHub](https://furihub.github.io/repo/) (aarch64). After adding AJHub:
+### Flatpak (recommended)
 
-```
-flatpak install ajhub net.dunevent.Phodder
-```
-
-Issues and feature requests: https://dev.dunevent.net/aj/Phodder/issues
+| <a href="https://ajdunevent.github.io/AJHub/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://ajdunevent.github.io/AJHub/badges/button-dark.svg"><img src="https://ajdunevent.github.io/AJHub/badges/button-light.svg" alt="AJHub, published with FrogPak" height="48"></picture></a> | <a href="https://furihub.github.io/repo/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://furihub.github.io/repo/badges/button-dark.svg"><img src="https://furihub.github.io/repo/badges/button-light.svg" alt="FuriHub, published with FrogPak" height="48"></picture></a> |
+| --- | --- |
+| x86_64 & aarch64 | aarch64 only |
 
 ## Download filters
 
@@ -41,7 +37,8 @@ Issues and feature requests: https://dev.dunevent.net/aj/Phodder/issues
 ## Development
 
 Developed on a FuriLabs FLX1S running FuriOS. `DESIGN.md` describes how
-Phodder works and why.
+Phodder works and why. Issues and feature requests go to
+https://dev.dunevent.net/aj/Phodder/issues.
 
 Phodder has relied extensively on AI-assisted development, primarily
 Anthropic's Claude (various models), under human direction and manual
