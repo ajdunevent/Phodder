@@ -1,0 +1,61 @@
+[package]
+name = "phodder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "phodder"
+path = "src/main.rs"
+
+[dependencies]
+# Podcast Index request signing.
+sha1 = "0.10"
+phodder-core.workspace = true
+phodder-playback.workspace = true
+tokio.workspace = true
+zbus.workspace = true
+oo7.workspace = true
+zeroize.workspace = true
+dirs = "5"
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+
+# statvfs for the pre-download disk-space check; Linux only, like the app.
+nix = { version = "0.28", features = ["fs"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-appender.workspace = true
+anyhow.workspace = true
+
+# Discoverer probes a downloaded file's duration. Playback lives in
+# phodder-playback.
+gstreamer.workspace = true
+gstreamer-pbutils = "0.25"
+
+# gtk4, libadwaita and gstreamer must share one glib line (0.22). Two glib
+# versions in one build still compile but fail later with errors like
+# "expected glib::ExitCode, found gtk4::glib::ExitCode". Newer widgets
+# (AdwDialog, AdwBanner, AdwToolbarView) are behind the version features,
+# not the crate version.
+gtk4 = { version = "0.11", features = ["v4_18"] }
+# Every tier through v1_8: properties arrive in point releases after their
+# widget (v1_6 lacked `set_reveal_bottom_bar`).
+libadwaita = { version = "0.9", features = ["v1_1", "v1_2", "v1_3", "v1_4", "v1_5", "v1_6", "v1_7", "v1_8", "gtk_v4_18"] }
+# No standalone gio/glib: use gtk4::gio and gtk4::glib. A separate
+# `gio = "*"` resolved to a second gio version.
+
+# Show notes go to Pango markup for a GtkLabel instead of a WebKitGTK view.
+html2pango = "0.6"
+
+# Backend-to-GTK bridge, received with glib::spawn_future_local;
+# glib::MainContext::channel is deprecated.
+async-channel = "2"
+
+# Translations. gettext-system uses the C library's gettext (glibc, and the
+# GNOME runtime) instead of building GNU gettext from source.
+gettext-rs = { version = "0.8", features = ["gettext-system"] }

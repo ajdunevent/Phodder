@@ -1,0 +1,24 @@
+[package]
+name = "phodder-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# No GTK, GStreamer or D-Bus dependencies (see src/lib.rs).
+[dependencies]
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+id3 = "1"
+chrono.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+globset = "0.4"
+
+rss = "2.0"
+# The early-stopping feed parser walks items with quick-xml (see feed.rs),
+# the same reader `rss` uses internally.
+quick-xml = "0.40"
+
+[dev-dependencies]
+tempfile = "3"

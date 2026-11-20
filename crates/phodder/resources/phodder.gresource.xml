@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <!-- The About dialog reads its details from the app's metainfo. -->
+  <gresource prefix="/net/dunevent/phodder">
+    <file alias="metainfo.xml">../../../data/net.dunevent.Phodder.metainfo.xml</file>
+  </gresource>
+  <!-- add_resource_path gets the base icons path; GTK appends
+       size/context itself, so prefixes spell out the rest. Bundled icons
+       are a fallback: a theme that has the icon still wins. -->
+  <gresource prefix="/net/dunevent/phodder/icons/scalable/status">
+    <file alias="library-symbolic.svg">icons/library-symbolic.svg</file>
+  </gresource>
+  <gresource prefix="/net/dunevent/phodder/icons/scalable/actions">
+    <file alias="find-location-symbolic.svg">icons/find-location-symbolic.svg</file>
+    <file alias="sleep-timer-symbolic.svg">icons/sleep-timer-symbolic.svg</file>
+    <file alias="skip-backwards-10-symbolic.svg">icons/skip-backwards-10-symbolic.svg</file>
+    <file alias="skip-backwards-30-symbolic.svg">icons/skip-backwards-30-symbolic.svg</file>
+    <file alias="skip-forward-10-symbolic.svg">icons/skip-forward-10-symbolic.svg</file>
+    <file alias="skip-forward-30-symbolic.svg">icons/skip-forward-30-symbolic.svg</file>
+  </gresource>
+  <!-- From adwaita-icon-theme (LGPL-3 or CC-BY-SA-3.0; see icons/ADWAITA.md),
+       so icons don't go missing under other themes or newer Adwaita
+       releases that drop them. -->
+  <gresource prefix="/net/dunevent/phodder/icons/scalable/actions">
+    <file alias="audio-x-generic-symbolic.svg">icons/audio-x-generic-symbolic.svg</file>
+    <file alias="dialog-error-symbolic.svg">icons/dialog-error-symbolic.svg</file>
+    <file alias="dialog-warning-symbolic.svg">icons/dialog-warning-symbolic.svg</file>
+    <file alias="document-edit-symbolic.svg">icons/document-edit-symbolic.svg</file>
+    <file alias="edit-clear-all-symbolic.svg">icons/edit-clear-all-symbolic.svg</file>
+    <file alias="edit-clear-symbolic.svg">icons/edit-clear-symbolic.svg</file>
+    <file alias="edit-copy-symbolic.svg">icons/edit-copy-symbolic.svg</file>
+    <file alias="edit-paste-symbolic.svg">icons/edit-paste-symbolic.svg</file>
+    <file alias="edit-undo-symbolic.svg">icons/edit-undo-symbolic.svg</file>
+    <file alias="emblem-system-symbolic.svg">icons/emblem-system-symbolic.svg</file>
+    <file alias="folder-download-symbolic.svg">icons/folder-download-symbolic.svg</file>
+    <file alias="go-down-symbolic.svg">icons/go-down-symbolic.svg</file>
+    <file alias="go-previous-symbolic.svg">icons/go-previous-symbolic.svg</file>
+    <file alias="go-up-symbolic.svg">icons/go-up-symbolic.svg</file>
+    <file alias="help-about-symbolic.svg">icons/help-about-symbolic.svg</file>
+    <file alias="image-x-generic-symbolic.svg">icons/image-x-generic-symbolic.svg</file>
+    <file alias="list-add-symbolic.svg">icons/list-add-symbolic.svg</file>
+    <file alias="list-drag-handle-symbolic.svg">icons/list-drag-handle-symbolic.svg</file>
+    <file alias="list-remove-symbolic.svg">icons/list-remove-symbolic.svg</file>
+    <file alias="media-playback-pause-symbolic.svg">icons/media-playback-pause-symbolic.svg</file>
+    <file alias="media-playback-start-symbolic.svg">icons/media-playback-start-symbolic.svg</file>
+    <file alias="media-playlist-consecutive-symbolic.svg">icons/media-playlist-consecutive-symbolic.svg</file>
+    <file alias="media-seek-backward-symbolic.svg">icons/media-seek-backward-symbolic.svg</file>
+    <file alias="media-seek-forward-symbolic.svg">icons/media-seek-forward-symbolic.svg</file>
+    <file alias="media-skip-backward-symbolic.svg">icons/media-skip-backward-symbolic.svg</file>
+    <file alias="media-skip-forward-symbolic.svg">icons/media-skip-forward-symbolic.svg</file>
+    <file alias="object-select-symbolic.svg">icons/object-select-symbolic.svg</file>
+    <file alias="open-menu-symbolic.svg">icons/open-menu-symbolic.svg</file>
+    <file alias="starred-symbolic.svg">icons/starred-symbolic.svg</file>
+    <file alias="user-trash-symbolic.svg">icons/user-trash-symbolic.svg</file>
+    <file alias="view-list-symbolic.svg">icons/view-list-symbolic.svg</file>
+    <file alias="view-refresh-symbolic.svg">icons/view-refresh-symbolic.svg</file>
+  </gresource>
+</gresources>

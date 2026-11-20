@@ -1,0 +1,58 @@
+{
+    "id": "net.dunevent.Phodder",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "51",
+    "sdk": "org.gnome.Sdk",
+    "sdk-extensions": [
+        "org.freedesktop.Sdk.Extension.rust-stable"
+    ],
+    "command": "phodder",
+    "finish-args": [
+        "--share=network",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=wayland",
+        "--device=dri",
+        "--socket=pulseaudio",
+        "--own-name=org.mpris.MediaPlayer2.net.dunevent.Phodder",
+        "--talk-name=org.mpris.MediaPlayer2.*",
+        "--system-talk-name=org.freedesktop.NetworkManager",
+        "--system-talk-name=org.freedesktop.ModemManager1",
+        "--system-talk-name=org.bluez"
+    ],
+    "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin"
+    },
+    "modules": [
+        {
+            "name": "phodder",
+            "buildsystem": "simple",
+            "build-options": {
+                "build-args": [
+                    "--share=network"
+                ],
+                "env": {
+                    "CARGO_HOME": "/run/build/phodder/cargo"
+                }
+            },
+            "build-commands": [
+                "cargo build --release --locked -p phodder",
+                "build-aux/install.sh target/release"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "..",
+                    "skip": [
+                        "target",
+                        "target-questing",
+                        ".flatpak",
+                        ".flatpak-builder",
+                        "dist",
+                        ".git"
+                    ]
+                }
+            ]
+        }
+    ]
+}

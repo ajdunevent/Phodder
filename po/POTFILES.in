@@ -1,0 +1,28 @@
+# Files with translatable strings, relative to the project root.
+# po/update-pot.sh extracts from these.
+data/net.dunevent.Phodder.desktop
+data/net.dunevent.Phodder.metainfo.xml
+crates/phodder/src/background_portal.rs
+crates/phodder/src/downloader.rs
+crates/phodder/src/feed_health.rs
+crates/phodder/src/main.rs
+crates/phodder/src/player.rs
+crates/phodder/src/redownload.rs
+crates/phodder/src/service/commands.rs
+crates/phodder/src/service/mod.rs
+crates/phodder/src/ui/add_feed.rs
+crates/phodder/src/ui/discover.rs
+crates/phodder/src/ui/episode_detail.rs
+crates/phodder/src/ui/groups.rs
+crates/phodder/src/ui/history.rs
+crates/phodder/src/ui/library.rs
+crates/phodder/src/ui/mod.rs
+crates/phodder/src/ui/problems.rs
+crates/phodder/src/ui/queue.rs
+crates/phodder/src/ui/settings.rs
+crates/phodder/src/ui/subscription_detail.rs
+crates/phodder/src/ui/subscriptions.rs
+crates/phodder/src/ui/sync_settings.rs
+crates/phodder/src/ui/widgets.rs
+crates/phodder/src/ui/window.rs
+crates/phodder/src/ui/transcript.rs

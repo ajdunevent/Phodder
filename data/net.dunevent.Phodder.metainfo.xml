@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.dunevent.Phodder</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Phodder</name>
+  <summary>A podcast player for Phosh</summary>
+  <description>
+    <p>
+      Phodder subscribes to podcasts, downloads new episodes in the
+      background and plays them from a queue ordered by group.
+    </p>
+    <ul>
+      <li>Groups put daily shows ahead of the rest</li>
+      <li>Download filters and automatic chapter skipping per podcast</li>
+      <li>Sync with Nextcloud GPodder Sync</li>
+      <li>Pauses for calls and resumes when Bluetooth reconnects</li>
+    </ul>
+  </description>
+  <developer id="net.dunevent">
+    <name>Phodder contributors</name>
+  </developer>
+  <url type="homepage">https://dev.dunevent.net/aj/Phodder</url>
+  <url type="vcs-browser">https://dev.dunevent.net/aj/Phodder</url>
+  <url type="bugtracker">https://dev.dunevent.net/aj/Phodder/issues</url>
+  <url type="donation">https://dunevent.net/donate</url>
+  <update_contact>aj@dunevent.net</update_contact>
+  <launchable type="desktop-id">net.dunevent.Phodder.desktop</launchable>
+  <provides>
+    <binary>phodder</binary>
+  </provides>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <branding>
+    <color type="primary" scheme_preference="light">#8ff0a4</color>
+    <color type="primary" scheme_preference="dark">#3d3846</color>
+  </branding>
+  <releases>
+    <release version="0.1.0" date="2026-11-19">
+      <description>
+        <p>First release.</p>
+        <ul>
+          <li>A queue ordered by group, so daily shows come first</li>
+          <li>Background refreshes and downloads, with filters and expiry per podcast</li>
+          <li>Chapters, automatic chapter skipping and transcripts</li>
+          <li>Sync with Nextcloud GPodder Sync and gpodder.net</li>
+          <li>Pauses for calls and resumes when Bluetooth reconnects</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

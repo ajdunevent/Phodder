@@ -1,0 +1,21 @@
+[package]
+name = "phodder-playback"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# GTK- and D-Bus-free so the engine can be tested headlessly against real
+# audio files. The app adapts its events to MPRIS and the UI.
+[dependencies]
+phodder-core.workspace = true
+gstreamer.workspace = true
+tokio = { workspace = true }
+rusqlite.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+tempfile = "3"
+tracing-subscriber.workspace = true

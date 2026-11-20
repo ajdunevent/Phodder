@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Phodder
+Comment=Listen to podcasts
+Exec=phodder
+Icon=net.dunevent.Phodder
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;GTK;GNOME;
+Keywords=podcast;rss;feed;episode;gpodder;
+StartupNotify=true
+DBusActivatable=true
+X-Purism-FormFactor=Workstation;Mobile;

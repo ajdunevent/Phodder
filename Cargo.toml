@@ -1,0 +1,54 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/phodder-core",
+    "crates/phodder",
+    "crates/phodder-playback",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://dev.dunevent.net/aj/Phodder"
+
+[workspace.dependencies]
+phodder-core = { path = "crates/phodder-core" }
+phodder-playback = { path = "crates/phodder-playback" }
+gstreamer = "0.25"
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "process", "sync", "fs"] }
+
+# Pure Rust D-Bus, for MPRIS, ModemManager and BlueZ.
+zbus = { version = "4", default-features = false, features = ["tokio"] }
+
+# Bundled SQLite keeps WAL and pragma behavior the same everywhere.
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+chrono = { version = "0.4", features = ["serde"] }
+
+# rustls avoids a system OpenSSL dependency in Nix and Flatpak builds.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+
+thiserror = "1"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+
+# Secret Service storage for sync credentials.
+oo7 = "0.6"
+zeroize = "1"
+
+# For build-aux/dev.sh's "Fast release": optimised, with incremental
+# rebuilds and no LTO, so small changes rebuild quickly.
+[profile.release-dev]
+inherits = "release"
+incremental = true
+codegen-units = 256
+lto = false

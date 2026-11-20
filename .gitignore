@@ -1,0 +1,7 @@
+/target
+/target-questing
+/.flatpak
+/.flatpak-builder
+/dist
+/data/icons/source/layered.svg
+/.no-sync
