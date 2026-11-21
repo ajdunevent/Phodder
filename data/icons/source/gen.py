@@ -48,7 +48,8 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewB
     {mirrored}
   </g>
   {grass}
-  <path fill="#ffffff" stroke="#ffffff" stroke-width="8" stroke-linejoin="round" d="M56 52 L56 80 L80 66 Z"/>
+  <path fill="#ffffff" stroke="#ffffff" stroke-width="12" stroke-linejoin="round" d="M54 48 L54 82 L83.44 65 Z"/>
+  <path fill="#3d3846" stroke="#3d3846" stroke-width="4" stroke-linejoin="round" d="M56 52 L56 78 L78.52 65 Z"/>
   <path fill="#3d3846" d="M14 100 H114 L107 118 Q106 120 103 120 H25 Q22 120 21 118 Z"/>
   <path fill="#5e5c64" d="M14 100 H114 L108.5 114 Q107.5 116 105 116 H23 Q20.5 116 19.5 114 Z"/>
   <rect x="14" y="99" width="100" height="3" rx="1.5" fill="#9a9996"/>

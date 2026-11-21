@@ -509,8 +509,9 @@ choices worth remembering:
   copy behind them. `data/icons/source/gen.py` lays out the blades and
   `flatten.py` (needs shapely) merges them into one path per colour and
   writes the installed SVG. It spans y 4 to 120, as tall as GNOME's other
-  square-ish icons; the play button's colour isn't settled, and it is the
-  last white path in the SVG.
+  square-ish icons. The play button, a slate triangle (the tray's colour)
+  with a thick white outline, is the last two paths; `flatten.py` finds it
+  by its white outline path.
 - `oo7` chosen specifically because its sandboxed file-backend (via the
   `org.freedesktop.portal.Secrets` portal) avoids classic libsecret's
   known Flatpak compatibility problems — one code path works correctly

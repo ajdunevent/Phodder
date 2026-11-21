@@ -60,19 +60,19 @@ pub fn build_window(
     let title_label = gtk4::Label::builder()
         .label(gettext("Nothing playing"))
         .halign(gtk4::Align::Start)
-        .css_classes(["title-4"])
         .ellipsize(gtk4::pango::EllipsizeMode::End)
         .build();
     let subtitle_label = gtk4::Label::builder()
         .label("")
         .halign(gtk4::Align::Start)
-        .css_classes(["dim-label"])
+        .css_classes(["caption", "dim-label"])
         .ellipsize(gtk4::pango::EllipsizeMode::End)
         .build();
     let play_pause_button = gtk4::Button::from_icon_name("media-playback-start-symbolic");
     play_pause_button.set_tooltip_text(Some(&gettext("Play")));
     play_pause_button.set_valign(gtk4::Align::Center);
     play_pause_button.add_css_class("circular");
+    play_pause_button.add_css_class("flat");
     // Starts as the fallback icon; swapped once playback state carries
     // artwork.
     let mini_thumbnail = load_thumbnail_image(&[None], "audio-x-generic-symbolic", 40);
@@ -345,7 +345,17 @@ pub fn build_window(
     text_box.append(&title_label);
     text_box.append(&subtitle_label);
 
-    let bottom_bar_row = gtk4::Box::builder().orientation(gtk4::Orientation::Horizontal).spacing(12).build();
+    let expand_icon = gtk4::Image::from_icon_name("go-up-symbolic");
+    expand_icon.add_css_class("dim-label");
+    let bottom_bar_row = gtk4::Box::builder()
+        .orientation(gtk4::Orientation::Horizontal)
+        .spacing(10)
+        .margin_top(6)
+        .margin_bottom(6)
+        .margin_start(14)
+        .margin_end(10)
+        .build();
+    bottom_bar_row.append(&expand_icon);
     bottom_bar_row.append(&mini_thumbnail);
     bottom_bar_row.append(&text_box);
     bottom_bar_row.append(&play_pause_button);

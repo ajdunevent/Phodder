@@ -43,6 +43,14 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.1.3" date="2026-11-20">
+      <description>
+        <ul>
+          <li>A lighter mini player, matching Paradon's.</li>
+          <li>The app icon's play button is now slate with a white outline.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.2" date="2026-11-20">
       <description>
         <ul>
