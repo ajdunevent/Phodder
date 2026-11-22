@@ -430,6 +430,25 @@ choices worth remembering:
 - MPRIS (`org.mpris.MediaPlayer2` + `.Player` via `zbus`) is the
   foundation — Bluetooth AVRCP hardware buttons route through it for
   free via `mpris-proxy` (BlueZ), no separate AVRCP code needed.
+- MPRIS Previous and Next skip back and forward by the skip intervals; a
+  second press within 700 ms restarts the episode or moves to the next
+  one (undoing the first press's skip, so the episode left keeps its
+  place). Headsets have only these buttons, and when Previous meant
+  restart, a stray press (likely what restarted episodes on Bluetooth
+  reconnects) lost the listener's place.
+  Long presses aren't handled: they don't reach MPRIS as anything
+  distinct.
+- Phodder gives up its MPRIS name while another player plays
+  (`mpris_presence.rs`). BlueZ, through mpris-proxy, sends a headset's
+  buttons to the first registered player and moves on only when that
+  player leaves the bus, whether or not it is playing; with Phodder's
+  service registered from login, a paused Phodder took presses meant for
+  other players. The name is given up when a peer reports Playing (or is
+  playing at startup), and taken back when Phodder plays or that peer
+  leaves the bus; the peer merely pausing doesn't bring it back, so the
+  next press resumes the peer. Going back to Phodder while the peer is
+  still open leaves BlueZ on the peer unless that app does the same (as
+  Paradon is meant to) or BlueZ is patched to follow the playing player.
 - Bluetooth auto-pause/resume is **not** something MPRIS provides —
   `bluetooth_watch.rs` follows where the stream plays: pulsesink's
   `current-device` (read through `Player::output_device`) names a

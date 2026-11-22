@@ -1,6 +1,6 @@
-//! Pauses this player when another MPRIS player on the session bus starts
-//! playing. Pause-only: another app pausing isn't a sign the user wants
-//! Phodder back.
+//! Pauses this player, and gives up its MPRIS name, when another MPRIS
+//! player on the session bus starts playing. Another app pausing isn't a
+//! sign the user wants Phodder back; that app quitting gives the name back.
 
 use crate::mpris::MPRIS_BUS_NAME;
 use crate::player::PlayerCore;
@@ -39,8 +39,11 @@ async fn watch_peers(core: Arc<PlayerCore>) -> anyhow::Result<()> {
     let mut owner_changes = dbus_proxy.receive_name_owner_changed().await?;
     while let Some(signal) = owner_changes.next().await {
         let Ok(args) = signal.args() else { continue };
+        let name = args.name().as_str();
         if args.new_owner().is_some() {
-            maybe_watch_peer(&connection, args.name().as_str(), &core, &watched).await;
+            maybe_watch_peer(&connection, name, &core, &watched).await;
+        } else if args.old_owner().is_some() && name != MPRIS_BUS_NAME && name.starts_with(MPRIS_PREFIX) {
+            core.presence.peer_left(name).await;
         }
     }
 
@@ -99,7 +102,30 @@ fn spawn_single_peer_watcher(connection: zbus::Connection, peer_name: String, co
                 if let Err(e) = core.player.pause_if_playing().await {
                     tracing::error!("failed to pause for MPRIS peer {peer_name}: {e}");
                 }
+                core.presence.step_aside(&peer_name).await;
             }
         }
     });
+}
+
+/// Another MPRIS player that is playing right now, if any.
+pub async fn playing_peer(connection: &zbus::Connection) -> Option<String> {
+    let names = zbus::fdo::DBusProxy::new(connection).await.ok()?.list_names().await.ok()?;
+    for name in names {
+        let name = name.as_str();
+        if name == MPRIS_BUS_NAME || !name.starts_with(MPRIS_PREFIX) {
+            continue;
+        }
+        let status = async {
+            let properties = zbus::fdo::PropertiesProxy::builder(connection).destination(name)?.path("/org/mpris/MediaPlayer2")?.build().await?;
+            let value = properties.get(zbus::names::InterfaceName::from_static_str_unchecked(MPRIS_PLAYER_INTERFACE), "PlaybackStatus").await?;
+            Ok::<_, zbus::Error>(String::try_from(value).unwrap_or_default())
+        };
+        if let Ok(Ok(status)) = tokio::time::timeout(std::time::Duration::from_millis(500), status).await {
+            if status == "Playing" {
+                return Some(name.to_string());
+            }
+        }
+    }
+    None
 }

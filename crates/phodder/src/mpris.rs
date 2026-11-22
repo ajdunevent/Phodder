@@ -3,8 +3,13 @@
 
 use crate::player::PlayerCore;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use zbus::zvariant::Value;
+
+/// Two presses of a headset's previous or next button closer than this
+/// count as a double press.
+const DOUBLE_PRESS: Duration = Duration::from_millis(700);
 
 pub const MPRIS_BUS_NAME: &str = "org.mpris.MediaPlayer2.net.dunevent.Phodder";
 pub const MPRIS_OBJECT_PATH: &str = "/org/mpris/MediaPlayer2";
@@ -60,10 +65,42 @@ impl MprisRoot {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Button {
+    Previous,
+    Next,
+}
+
 /// The `org.mpris.MediaPlayer2.Player` interface, delegating to the playback
 /// engine.
 pub struct MprisPlayer {
     pub core: Arc<PlayerCore>,
+    /// The last previous/next press, with the episode playing then.
+    last_press: Mutex<Option<(Button, Instant, Option<i64>)>>,
+}
+
+impl MprisPlayer {
+    pub fn new(core: Arc<PlayerCore>) -> Self {
+        Self { core, last_press: Mutex::new(None) }
+    }
+
+    fn current_episode(&self) -> Option<i64> {
+        self.core.player.snapshot().episode.map(|e| e.id)
+    }
+
+    /// For a press completing a double press, the episode that was playing
+    /// at the first press; None for a single press. A completed double press
+    /// is forgotten, so a third press starts over.
+    fn double_press(&self, button: Button) -> Option<Option<i64>> {
+        let mut last = self.last_press.lock().unwrap_or_else(|e| e.into_inner());
+        let now = Instant::now();
+        let first = match *last {
+            Some((b, at, episode)) if b == button && now.duration_since(at) <= DOUBLE_PRESS => Some(episode),
+            _ => None,
+        };
+        *last = if first.is_some() { None } else { Some((button, now, self.current_episode())) };
+        first
+    }
 }
 
 #[zbus::interface(name = "org.mpris.MediaPlayer2.Player")]
@@ -85,14 +122,40 @@ impl MprisPlayer {
         self.core.player.stop().await.map_err(to_fdo_err)
     }
 
-    /// Stops when nothing else is queued.
+    /// Skips forward; a double press moves to the next episode instead.
+    /// Headsets have only these buttons, and a stray press from one
+    /// shouldn't lose the listener's place.
     async fn next(&self) -> zbus::fdo::Result<()> {
-        self.core.player.next().await.map(drop).map_err(to_fdo_err)
+        if let Some(first_episode) = self.double_press(Button::Next) {
+            if first_episode != self.current_episode() {
+                // The first press's skip ran past the end and moved on already.
+                tracing::info!("MPRIS Next pressed twice: already on the next episode");
+                return Ok(());
+            }
+            tracing::info!("MPRIS Next pressed twice: next episode");
+            // Undoes the first press's skip, so the episode being left keeps
+            // its place.
+            let skip_ms = {
+                let db = self.core.db.lock().await;
+                phodder_core::settings::get_setting_i64(&db, "skip_forward_ms").unwrap_or(30_000)
+            };
+            let _ = self.core.player.seek_by(-skip_ms).await;
+            self.core.player.next().await.map(drop).map_err(to_fdo_err)
+        } else {
+            tracing::info!("MPRIS Next: skip forward");
+            self.core.player.skip_forward().await.map_err(to_fdo_err)
+        }
     }
 
-    /// Restarts the current episode; the queue has no history to go back to.
+    /// Skips back; a double press restarts the episode instead.
     async fn previous(&self) -> zbus::fdo::Result<()> {
-        self.core.player.restart().await.map_err(to_fdo_err)
+        if self.double_press(Button::Previous).is_some() {
+            tracing::info!("MPRIS Previous pressed twice: restart episode");
+            self.core.player.restart().await.map_err(to_fdo_err)
+        } else {
+            tracing::info!("MPRIS Previous: skip back");
+            self.core.player.skip_backward().await.map_err(to_fdo_err)
+        }
     }
 
     /// Relative, in microseconds.

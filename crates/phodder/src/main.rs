@@ -27,6 +27,7 @@ mod gpodder_sync;
 mod gpodder_sync_runner;
 mod mpris;
 mod mpris_peer_watch;
+mod mpris_presence;
 mod network;
 mod nextcloud_login;
 mod feed_health;

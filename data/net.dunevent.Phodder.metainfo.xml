@@ -43,6 +43,15 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.1.4" date="2026-11-21">
+      <description>
+        <ul>
+          <li>Headset and media-key previous and next buttons skip back and forward; press twice to restart the episode or move to the next one.</li>
+          <li>A stray previous press from a headset no longer restarts the episode.</li>
+          <li>Phodder steps aside from headset and media-key buttons while another player is playing, so they control that player.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.3" date="2026-11-20">
       <description>
         <ul>

@@ -9,7 +9,7 @@
 pub mod commands;
 
 use crate::coordinator::Coordinator;
-use crate::mpris::{MprisPlayer, MprisRoot, MPRIS_BUS_NAME, MPRIS_OBJECT_PATH};
+use crate::mpris::{MprisPlayer, MprisRoot, MPRIS_OBJECT_PATH};
 use crate::player::PlayerCore;
 use crate::ui::UiUpdate;
 use commands::ServiceCommand;
@@ -202,8 +202,11 @@ async fn backend(mut command_rx: tokio::sync::mpsc::UnboundedReceiver<Incoming>,
     core.spawn_adapters(coordinator.clone());
 
     connection.object_server().at(MPRIS_OBJECT_PATH, MprisRoot).await?;
-    connection.object_server().at(MPRIS_OBJECT_PATH, MprisPlayer { core: core.clone() }).await?;
-    connection.request_name(MPRIS_BUS_NAME).await?;
+    connection.object_server().at(MPRIS_OBJECT_PATH, MprisPlayer::new(core.clone())).await?;
+    match crate::mpris_peer_watch::playing_peer(&connection).await {
+        Some(peer) => core.presence.step_aside(&peer).await,
+        None => core.presence.come_back("starting").await,
+    }
 
     if let Err(e) = core.player.restore_last_in_progress().await {
         tracing::error!("failed to restore last in-progress episode: {e:#}");

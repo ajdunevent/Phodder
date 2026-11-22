@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: phodder\n"
 "Report-Msgid-Bugs-To: https://github.com/\n"
-"POT-Creation-Date: 2026-11-20 15:54-0600\n"
+"POT-Creation-Date: 2026-11-21 22:41-0600\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -75,11 +75,11 @@ msgstr ""
 msgid "Couldn't read the feed"
 msgstr ""
 
-#: crates/phodder/src/main.rs:272
+#: crates/phodder/src/main.rs:273
 msgid "Couldn't start playback and downloads: {error}"
 msgstr ""
 
-#: crates/phodder/src/player.rs:136
+#: crates/phodder/src/player.rs:143
 msgid "Couldn't play an episode, so it was skipped: {error}"
 msgstr ""
 
@@ -1535,7 +1535,7 @@ msgid "Sync with Nextcloud GPodder Sync"
 msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:17
-#: data/net.dunevent.Phodder.metainfo.xml:77
+#: data/net.dunevent.Phodder.metainfo.xml:86
 msgid "Pauses for calls and resumes when Bluetooth reconnects"
 msgstr ""
 
@@ -1544,51 +1544,67 @@ msgid "Phodder contributors"
 msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:49
-msgid "A lighter mini player, matching Paradon's."
+msgid ""
+"Headset and media-key previous and next buttons skip back and forward; press "
+"twice to restart the episode or move to the next one."
 msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:50
-msgid "The app icon's play button is now slate with a white outline."
+msgid "A stray previous press from a headset no longer restarts the episode."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:57
-msgid "Phodder no longer leaves a hidden window running in the background."
+#: data/net.dunevent.Phodder.metainfo.xml:51
+msgid ""
+"Phodder steps aside from headset and media-key buttons while another player "
+"is playing, so they control that player."
 msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:58
+msgid "A lighter mini player, matching Paradon's."
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:59
+msgid "The app icon's play button is now slate with a white outline."
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:66
+msgid "Phodder no longer leaves a hidden window running in the background."
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:67
 msgid ""
 "Phodder in the background gives memory back after refreshing large feeds."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:59
+#: data/net.dunevent.Phodder.metainfo.xml:68
 msgid ""
 "The player keeps showing the episode when a Bluetooth device disconnects."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:60
+#: data/net.dunevent.Phodder.metainfo.xml:69
 msgid "The app icon is taller, to match other icons of its shape."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:66
+#: data/net.dunevent.Phodder.metainfo.xml:75
 msgid "Quit now also stops Phodder in the background."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:71
+#: data/net.dunevent.Phodder.metainfo.xml:80
 msgid "First release."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:73
+#: data/net.dunevent.Phodder.metainfo.xml:82
 msgid "A queue ordered by group, so daily shows come first"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:74
+#: data/net.dunevent.Phodder.metainfo.xml:83
 msgid "Background refreshes and downloads, with filters and expiry per podcast"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:75
+#: data/net.dunevent.Phodder.metainfo.xml:84
 msgid "Chapters, automatic chapter skipping and transcripts"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:76
+#: data/net.dunevent.Phodder.metainfo.xml:85
 msgid "Sync with Nextcloud GPodder Sync and gpodder.net"
 msgstr ""

@@ -22,6 +22,7 @@ pub struct PlayerCore {
     pub ui_tx: async_channel::Sender<crate::ui::UiUpdate>,
     /// The connection MPRIS is registered on; signals are emitted on it.
     pub connection: zbus::Connection,
+    pub presence: crate::mpris_presence::Presence,
     action_push: tokio::sync::mpsc::UnboundedSender<()>,
     action_push_rx: std::sync::Mutex<Option<tokio::sync::mpsc::UnboundedReceiver<()>>>,
 }
@@ -36,7 +37,8 @@ impl PlayerCore {
     ) -> Arc<Self> {
         let _ = SHUTDOWN_TARGET.set((tokio::runtime::Handle::current(), player.clone()));
         let (action_push, action_push_rx) = tokio::sync::mpsc::unbounded_channel();
-        Arc::new(Self { player, db, db_path, ui_tx, connection, action_push, action_push_rx: std::sync::Mutex::new(Some(action_push_rx)) })
+        let presence = crate::mpris_presence::Presence::new(connection.clone());
+        Arc::new(Self { player, db, db_path, ui_tx, connection, presence, action_push, action_push_rx: std::sync::Mutex::new(Some(action_push_rx)) })
     }
 
     pub fn status(&self) -> Status {
@@ -87,6 +89,11 @@ impl PlayerCore {
             }
             if status_changed {
                 coordinator.set_actively_playing(snap.status == Status::Playing).await;
+                // Before the PlaybackStatus signal below, so peers watching
+                // the name see it.
+                if snap.status == Status::Playing {
+                    self.presence.come_back("playing").await;
+                }
             }
             if status_changed || episode_changed {
                 let mut changed = vec![("PlaybackStatus", Value::from(snap.status.as_mpris_str()))];
