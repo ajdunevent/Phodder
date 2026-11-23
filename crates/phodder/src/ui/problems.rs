@@ -1,8 +1,9 @@
-//! The window's single banner: offline state, failing feeds, and other
-//! background errors, with a Details dialog listing them.
+//! The window's single banner: offline state, a failing sync, failing feeds,
+//! and other background errors, with a Details dialog listing them.
 
 use super::*;
 use crate::feed_health::FeedProblem;
+use crate::gpodder_sync_runner::SyncProblem;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
@@ -16,6 +17,10 @@ struct State {
     other_errors: Vec<String>,
     /// Feeds hidden from the banner by Dismiss; a new failing feed shows it again.
     dismissed_feeds: HashSet<i64>,
+    /// Stays until a sync succeeds.
+    sync_problem: Option<SyncProblem>,
+    /// Hidden by Dismiss until the sync's problem changes.
+    sync_dismissed: bool,
 }
 
 thread_local! {
@@ -38,6 +43,28 @@ pub(super) fn set_refresh_status(offline: bool, feed_problems: Vec<FeedProblem>)
     });
 }
 
+pub(super) fn set_sync_status(problem: Option<SyncProblem>) {
+    STATE.with(|s| {
+        let mut s = s.borrow_mut();
+        if s.sync_problem != problem {
+            s.sync_dismissed = false;
+        }
+        s.sync_problem = problem;
+    });
+}
+
+fn sync_text(problem: &SyncProblem) -> String {
+    match problem.failed_feeds {
+        None => gettext_f("{service} sync failed for all feeds", &[("service", &problem.service)]),
+        Some(n) => ngettext_f(
+            "{service} sync failed for {n} feed",
+            "{service} sync failed for {n} feeds",
+            n as u32,
+            &[("service", &problem.service), ("n", &n.to_string())],
+        ),
+    }
+}
+
 pub(super) fn push_error(message: String) {
     STATE.with(|s| {
         let mut s = s.borrow_mut();
@@ -54,6 +81,7 @@ fn dismiss() {
         let mut s = s.borrow_mut();
         s.other_errors.clear();
         s.dismissed_feeds = s.feed_problems.iter().map(|p| p.subscription_id).collect();
+        s.sync_dismissed = true;
     });
 }
 
@@ -66,6 +94,19 @@ fn banner_text() -> Option<(String, bool)> {
         }
         let feeds: Vec<&FeedProblem> = s.feed_problems.iter().filter(|p| !s.dismissed_feeds.contains(&p.subscription_id)).collect();
         let others = s.other_errors.len();
+        // A failing sync leads, since the account needs fixing; the rest is
+        // counted after it.
+        if let Some(sync) = s.sync_problem.as_ref().filter(|_| !s.sync_dismissed) {
+            let sync = sync_text(sync);
+            let rest = feeds.len() + others;
+            let text = if rest == 0 {
+                sync
+            } else {
+                // {sync} is the "… sync failed for …" sentence above.
+                ngettext_f("{sync}, and {n} other problem", "{sync}, and {n} other problems", rest as u32, &[("sync", &sync), ("n", &rest.to_string())])
+            };
+            return Some((text, true));
+        }
         let feed_part = match feeds.as_slice() {
             [] => None,
             [one] => Some(gettext_f("Couldn't refresh “{title}”", &[("title", &one.title)])),
@@ -106,9 +147,9 @@ pub(super) fn show_details(
     dialog_sheet: &libadwaita::BottomSheet,
     command_tx: &UnboundedSender<UiCommand>,
 ) {
-    let (feeds, others, offline) = STATE.with(|s| {
+    let (feeds, others, offline, sync) = STATE.with(|s| {
         let s = s.borrow();
-        (s.feed_problems.clone(), s.other_errors.clone(), s.offline)
+        (s.feed_problems.clone(), s.other_errors.clone(), s.offline, s.sync_problem.clone())
     });
     let content = gtk4::Box::builder()
         .orientation(gtk4::Orientation::Vertical)
@@ -119,6 +160,22 @@ pub(super) fn show_details(
         .margin_bottom(18)
         .build();
     let list = gtk4::ListBox::builder().selection_mode(gtk4::SelectionMode::None).css_classes(["boxed-list"]).build();
+    let mut sync_row = None;
+    if let Some(sync) = &sync {
+        let row = libadwaita::ActionRow::builder()
+            .title(escape_markup(&sync_text(sync)))
+            .subtitle(escape_markup(&sync.reason))
+            .subtitle_lines(6)
+            .activatable(true)
+            .build();
+        let icon = gtk4::Image::from_icon_name("dialog-warning-symbolic");
+        set_accessible_label(&icon, &gettext("Sync problem"));
+        row.add_prefix(&icon);
+        row.add_suffix(&gtk4::Image::from_icon_name("go-next-symbolic"));
+        row.set_tooltip_text(Some(&gettext("Open sync settings")));
+        list.append(&row);
+        sync_row = Some(row);
+    }
     for problem in &feeds {
         let row = libadwaita::ActionRow::builder().title(escape_markup(&problem.title)).subtitle(escape_markup(&problem.reason)).build();
         let icon = gtk4::Image::from_icon_name("dialog-warning-symbolic");
@@ -133,7 +190,7 @@ pub(super) fn show_details(
         row.add_prefix(&icon);
         list.append(&row);
     }
-    if feeds.is_empty() && others.is_empty() {
+    if feeds.is_empty() && others.is_empty() && sync.is_none() {
         list.append(&libadwaita::ActionRow::builder().title(gettext("No problems")).build());
     }
     content.append(&list);
@@ -146,6 +203,14 @@ pub(super) fn show_details(
     content.append(&buttons);
 
     let presentation = present_dialog_adaptively(&content, &gettext("Problems"), 420, 360, window, dialog_sheet, true);
+    if let Some(row) = sync_row {
+        let window = window.clone();
+        let presentation = presentation.clone();
+        row.connect_activated(move |_| {
+            presentation.close();
+            let _ = gtk4::prelude::WidgetExt::activate_action(&window, "win.show-settings", None);
+        });
+    }
     {
         let command_tx = command_tx.clone();
         let presentation = presentation.clone();

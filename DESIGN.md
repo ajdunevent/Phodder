@@ -344,6 +344,13 @@ choices worth remembering:
      within a group. Episode actions carry this device's ID, with
      timestamps in the documented `2009-12-12T09:00:00` UTC form.
      Tested against a fake server, not the real gpodder.net.
+- Each sync pass (refresh, Sync Now, the half-hourly sweep) sends a
+  `SyncStatus`: None when it worked, otherwise the service ("gPodder" or
+  "Nextcloud"), how many feeds failed (None for the whole sync, such as a
+  missing password), and why. The problem bar leads with it ("Nextcloud
+  sync failed for all feeds") until a sync succeeds, and its Details row
+  opens Settings. Failures used to reach only the log, so a missing keyring
+  password went unnoticed.
 - **GNOME Online Accounts: dropped.** Under Flatpak it needs a permission
   that exposes every online account.
 - Credential storage crate: `oo7` (not classic `libsecret` C bindings) —
@@ -377,6 +384,15 @@ choices worth remembering:
 - Directory artwork is cached in `~/.cache/phodder/discover`, apart from
   subscription artwork. Files unused for 7 days are deleted at startup;
   adding a podcast copies its artwork to the permanent folder.
+- After each refresh, artwork whose cached file is missing (paths from
+  before the Flatpak, for one) is fetched again from its URL; without a
+  URL an episode's path is cleared so it shows its show's artwork. A feed
+  refresh re-caches a show's artwork, but an episode's is only cached when
+  the episode is added.
+- The Refresh button's icon turns while any refresh runs (as Owlet's
+  does), from a `Refreshing` update the service sends when the first
+  overlapping refresh starts and the last one ends; new windows get it in
+  their catch-up.
 - Dedup by normalized feed URL. Results already subscribed to show a
   checkmark and open the existing podcast.
 - Not built: preview-playing an episode before subscribing (the planned
@@ -430,6 +446,15 @@ choices worth remembering:
 - MPRIS (`org.mpris.MediaPlayer2` + `.Player` via `zbus`) is the
   foundation — Bluetooth AVRCP hardware buttons route through it for
   free via `mpris-proxy` (BlueZ), no separate AVRCP code needed.
+- A load that fails for any reason but the file (a timeout, an audio
+  output error; a car's Bluetooth still connecting) is retried three
+  times, 3 s apart, then the episode is held paused. Only file problems
+  and missing decoders mark an episode failed and skip to the next one.
+  Before, a reconnecting car's 15 s load timeout skipped the episode.
+- MPRIS Stop pauses, keeping the episode loaded: car stereos send Stop
+  when switched off. Play with nothing loaded resumes the most recently
+  played unfinished queued episode (`last_in_progress`) before falling
+  back to the front of the queue, which may have changed meanwhile.
 - MPRIS Previous and Next skip back and forward by the skip intervals; a
   second press within 700 ms restarts the episode or moves to the next
   one (undoing the first press's skip, so the episode left keeps its

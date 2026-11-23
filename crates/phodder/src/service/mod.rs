@@ -249,6 +249,8 @@ async fn backend(mut command_rx: tokio::sync::mpsc::UnboundedReceiver<Incoming>,
 struct Last {
     playback: Option<UiUpdate>,
     refresh_status: Option<UiUpdate>,
+    refreshing: Option<UiUpdate>,
+    sync_status: Option<UiUpdate>,
 }
 
 /// Updates waiting for a window's next `NextUpdates` call.
@@ -272,6 +274,8 @@ impl Hub {
         match &update {
             UiUpdate::PlaybackState { .. } => self.last.lock().await.playback = Some(update.clone()),
             UiUpdate::RefreshStatus { .. } => self.last.lock().await.refresh_status = Some(update.clone()),
+            UiUpdate::Refreshing(_) => self.last.lock().await.refreshing = Some(update.clone()),
+            UiUpdate::SyncStatus(_) => self.last.lock().await.sync_status = Some(update.clone()),
             _ => {}
         }
         let mut windows = self.windows.lock().await;
@@ -316,6 +320,8 @@ impl Hub {
             .playback
             .iter()
             .chain(last.refresh_status.iter())
+            .chain(last.refreshing.iter())
+            .chain(last.sync_status.iter())
             .chain(held.iter())
             .filter_map(|update| serde_json::to_string(update).ok())
             .collect();

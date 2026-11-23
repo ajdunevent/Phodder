@@ -43,6 +43,19 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.1.5" date="2026-11-23">
+      <description>
+        <ul>
+          <li>When the audio output isn't ready, such as a car still connecting, Phodder tries the episode again instead of skipping to the next one.</li>
+          <li>Switching off a car stereo pauses the episode instead of unloading it.</li>
+          <li>The Refresh button turns while podcasts are refreshing.</li>
+          <li>Delete All Files in History works, says how many files it deleted, and is unavailable when there's nothing to delete.</li>
+          <li>Missing podcast and episode artwork is downloaded again.</li>
+          <li>A failing gPodder or Nextcloud sync shows in the problem bar until it works again.</li>
+          <li>Playing with nothing loaded resumes the episode you were listening to, not whatever is first in the queue.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.4" date="2026-11-21">
       <description>
         <ul>

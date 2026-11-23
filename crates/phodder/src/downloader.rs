@@ -374,6 +374,7 @@ async fn refresh_and_download(
         return;
     }
     if refresh {
+        let _activity = RefreshActivity::start(ui_tx);
         if let Err(e) = refresh_all_subscriptions(db, ui_tx, force_bypass_cache).await {
             tracing::error!("feed refresh failed: {e}");
             // Infrastructure failure (listing subscriptions failed). Per-feed
@@ -395,6 +396,31 @@ async fn refresh_and_download(
         }
     }
     crate::release_free_memory();
+}
+
+/// Counts running refreshes, so the Refresh button spins while any runs,
+/// including an hourly one overlapping a manual one.
+static REFRESHES_RUNNING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+pub(crate) struct RefreshActivity {
+    ui_tx: async_channel::Sender<crate::ui::UiUpdate>,
+}
+
+impl RefreshActivity {
+    pub(crate) fn start(ui_tx: &async_channel::Sender<crate::ui::UiUpdate>) -> Self {
+        if REFRESHES_RUNNING.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+            let _ = ui_tx.try_send(crate::ui::UiUpdate::Refreshing(true));
+        }
+        Self { ui_tx: ui_tx.clone() }
+    }
+}
+
+impl Drop for RefreshActivity {
+    fn drop(&mut self) {
+        if REFRESHES_RUNNING.fetch_sub(1, std::sync::atomic::Ordering::SeqCst) == 1 {
+            let _ = self.ui_tx.try_send(crate::ui::UiUpdate::Refreshing(false));
+        }
+    }
 }
 
 async fn refresh_all_subscriptions(
@@ -425,6 +451,10 @@ async fn refresh_all_subscriptions(
         }
     }
 
+    if let Err(e) = recache_missing_artwork(db).await {
+        tracing::error!("re-caching missing artwork failed: {e}");
+    }
+
     // One DataChanged for the whole pass.
     crate::feed_health::send_status(ui_tx).await;
 
@@ -434,6 +464,45 @@ async fn refresh_all_subscriptions(
         }
     }
 
+    Ok(())
+}
+
+/// Fetches artwork again where the cached file is gone, such as paths from
+/// before Phodder ran as a Flatpak. Refreshing a feed re-caches a show's
+/// artwork, but an episode's is only cached when the episode is added.
+async fn recache_missing_artwork(db: &Arc<Mutex<rusqlite::Connection>>) -> anyhow::Result<()> {
+    let rows: Vec<(&'static str, i64, Option<String>, String)> = {
+        let conn = db.lock().await;
+        let mut rows = Vec::new();
+        for table in ["subscriptions", "episodes"] {
+            let mut stmt = conn.prepare(&format!("SELECT id, artwork_url, artwork_local_path FROM {table} WHERE artwork_local_path IS NOT NULL"))?;
+            let found = stmt.query_map([], |row| Ok((table, row.get(0)?, row.get(1)?, row.get(2)?)))?;
+            rows.extend(found.collect::<rusqlite::Result<Vec<_>>>()?);
+        }
+        rows
+    };
+    let missing: Vec<_> = rows.into_iter().filter(|(_, _, _, path)| !std::path::Path::new(path).exists()).collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    tracing::info!("re-caching {} missing artwork file(s)", missing.len());
+    let client = http_client();
+    for (table, id, url, old_path) in missing {
+        // Without a URL there's nothing to fetch; an episode then shows its
+        // show's artwork.
+        let new_path = match &url {
+            Some(url) => match get_or_download_image(&client, url).await {
+                Ok(path) => Some(path),
+                Err(e) => {
+                    tracing::warn!("couldn't re-cache artwork for {table} {id} from {url}: {e}");
+                    continue;
+                }
+            },
+            None => None,
+        };
+        tracing::info!("{table} {id}: artwork {old_path} -> {}", new_path.as_deref().unwrap_or("(none)"));
+        db.lock().await.execute(&format!("UPDATE {table} SET artwork_local_path = ?1 WHERE id = ?2"), rusqlite::params![new_path, id])?;
+    }
     Ok(())
 }
 

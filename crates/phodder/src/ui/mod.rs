@@ -80,6 +80,10 @@ pub enum UiUpdate {
     /// Network availability and feeds whose refresh failures are worth
     /// showing.
     RefreshStatus { offline: bool, feed_problems: Vec<crate::feed_health::FeedProblem> },
+    /// Whether any feed refresh is running; spins the Refresh button.
+    Refreshing(bool),
+    /// After each sync: what failed, or None once it works.
+    SyncStatus(Option<crate::gpodder_sync_runner::SyncProblem>),
     /// Shown in the problems banner. While no window is open the service
     /// holds the most recent ones for the next window.
     Error(String),

@@ -39,10 +39,31 @@ async fn resolve_gpodder_account(
     }
 }
 
+/// A failing sync, for the window's problem bar until a sync succeeds.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct SyncProblem {
+    /// "gPodder" or "Nextcloud".
+    pub service: String,
+    /// None when the whole sync failed; otherwise how many feeds did.
+    pub failed_feeds: Option<usize>,
+    pub reason: String,
+}
+
+fn service_name(kind: &str) -> &'static str {
+    match kind {
+        "nextcloud_gpodder" | "goa_nextcloud" => "Nextcloud",
+        _ => "gPodder",
+    }
+}
+
 /// Runs the subscription pass, then the episode-action pass. Both always run;
 /// the first error is returned so Sync Now can report it. A no-op without an
-/// enabled account.
+/// enabled account. Reports the outcome as a `SyncStatus` update.
 pub async fn sync_all(db_path: &std::path::Path, ui_tx: &async_channel::Sender<crate::ui::UiUpdate>) -> anyhow::Result<()> {
+    let account_kind = phodder_core::open_connection(db_path)
+        .ok()
+        .and_then(|conn| phodder_core::sync_accounts::get_enabled_sync_account(&conn).ok().flatten())
+        .map(|account| account.kind);
     let subscriptions_result = sync_subscriptions(db_path, ui_tx).await;
     if let Err(e) = &subscriptions_result {
         tracing::error!("subscription sync failed: {e}");
@@ -51,6 +72,18 @@ pub async fn sync_all(db_path: &std::path::Path, ui_tx: &async_channel::Sender<c
     if let Err(e) = &episode_actions_result {
         tracing::error!("episode-action sync failed: {e}");
     }
+    let problem = account_kind.map(|kind| service_name(&kind).to_string()).and_then(|service| {
+        match (&subscriptions_result, &episode_actions_result) {
+            (Err(e), _) | (_, Err(e)) => Some(SyncProblem { service, failed_feeds: None, reason: e.to_string() }),
+            (Ok(failed), Ok(())) if !failed.is_empty() => Some(SyncProblem {
+                service,
+                failed_feeds: Some(failed.len()),
+                reason: failed.iter().map(|(feed_url, error)| format!("{feed_url}: {error}")).collect::<Vec<_>>().join("\n"),
+            }),
+            _ => None,
+        }
+    });
+    let _ = ui_tx.send(crate::ui::UiUpdate::SyncStatus(problem)).await;
     // Sent unconditionally; DataChanged rebuilds are coalesced and skip
     // unchanged tabs.
     let _ = ui_tx.send(crate::ui::UiUpdate::DataChanged).await;
@@ -63,15 +96,17 @@ pub async fn sync_all(db_path: &std::path::Path, ui_tx: &async_channel::Sender<c
 /// them, and updates each row's sync bookkeeping. Uses the `active` and
 /// `synced_with_account_id` columns on `subscriptions` (see schema.sql);
 /// a separate snapshot table was replaced by these. A no-op without an
-/// enabled account.
-pub async fn sync_subscriptions(db_path: &std::path::Path, ui_tx: &async_channel::Sender<crate::ui::UiUpdate>) -> anyhow::Result<()> {
+/// enabled account. Returns the feeds that couldn't be added or removed, with
+/// why.
+pub async fn sync_subscriptions(db_path: &std::path::Path, ui_tx: &async_channel::Sender<crate::ui::UiUpdate>) -> anyhow::Result<Vec<(String, String)>> {
     let db_account = {
         let conn = phodder_core::open_connection(db_path)?;
         phodder_core::sync_accounts::get_enabled_sync_account(&conn)?
     };
     let Some(db_account) = db_account else {
-        return Ok(());
+        return Ok(Vec::new());
     };
+    let mut failed_feeds = Vec::new();
 
     let device_id = {
         let conn = phodder_core::open_connection(db_path)?;
@@ -164,10 +199,12 @@ pub async fn sync_subscriptions(db_path: &std::path::Path, ui_tx: &async_channel
                 }
                 Err(e) => {
                     tracing::error!("failed to add remotely-synced subscription {feed_url}: {e}");
+                    failed_feeds.push((feed_url.clone(), e.to_string()));
                 }
             },
             Err(e) => {
                 tracing::warn!("failed to fetch preview for remotely-synced feed {feed_url}: {e}");
+                failed_feeds.push((feed_url.clone(), e.to_string()));
             }
         }
     }
@@ -186,6 +223,7 @@ pub async fn sync_subscriptions(db_path: &std::path::Path, ui_tx: &async_channel
         // to report back.
         if let Err(e) = crate::ui::delete_subscription_and_files_hard(db_path, subscription_id) {
             tracing::error!("failed to remove remotely-unsynced subscription {feed_url}: {e}");
+            failed_feeds.push((feed_url.clone(), e.to_string()));
         }
     }
 
@@ -195,7 +233,7 @@ pub async fn sync_subscriptions(db_path: &std::path::Path, ui_tx: &async_channel
     }
 
     tracing::info!("gpodder subscription sync completed for account {}", db_account.id);
-    Ok(())
+    Ok(failed_feeds)
 }
 
 /// Pushes the `sync_outbox`, pulls remote episode actions since this

@@ -142,6 +142,7 @@ pub fn handle(
         }
         C::RefreshSubscription(subscription_id) => {
             tokio::spawn(async move {
+                let _activity = crate::downloader::RefreshActivity::start(&core.ui_tx);
                 let sub = phodder_core::subscriptions::get_subscription(&*core.db.lock().await, subscription_id);
                 match sub {
                     Ok(Some(sub)) => {

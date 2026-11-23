@@ -11,6 +11,12 @@ const TICK: Duration = Duration::from_millis(250);
 const PUBLISH_INTERVAL: Duration = Duration::from_secs(1);
 const PERSIST_INTERVAL: Duration = Duration::from_secs(20);
 const LOAD_TIMEOUT: Duration = Duration::from_secs(15);
+/// A load that fails for a reason other than the file (typically the audio
+/// output, such as a car's Bluetooth still connecting) is retried this many
+/// times, this far apart, before the episode is held paused. Treating it as
+/// a bad file skipped to the next episode.
+const LOAD_RETRIES: u32 = 3;
+const LOAD_RETRY_DELAY: Duration = Duration::from_secs(3);
 /// Fallback for a seek whose ASYNC_DONE never arrives.
 const SEEK_TIMEOUT: Duration = Duration::from_secs(3);
 /// On resume, a pipeline position this far from where playback was paused
@@ -76,6 +82,8 @@ struct Engine {
     last_persist: Instant,
     last_publish: Instant,
     last_error_retry: Option<(i64, Instant)>,
+    /// A held episode to load again, when, and how many loads have failed.
+    load_retry: Option<LoadRetry>,
     /// Episodes that failed to load this session; skipped when advancing.
     failed: HashSet<i64>,
     /// An episode the user chose, until it has loaded.
@@ -137,6 +145,7 @@ pub(crate) fn spawn(
         last_persist: now,
         last_publish: now,
         last_error_retry: None,
+        load_retry: None,
         failed: HashSet::new(),
         requested: None,
         missing_decoder: None,
@@ -258,14 +267,25 @@ impl Engine {
 
     async fn play(&mut self) -> anyhow::Result<bool> {
         match self.phase {
-            Phase::Idle => match self.current_id() {
-                Some(id) => self.load_episode(id, true).await?,
-                None => {
-                    if !self.advance(&[], true).await? {
-                        anyhow::bail!("nothing queued to play");
+            Phase::Idle => {
+                // A press starts the retries over.
+                self.load_retry = None;
+                // With nothing loaded, play resumes the episode listened to
+                // last before taking the front of the queue, which another
+                // group or a reorder may have changed meanwhile.
+                let resume = match self.current_id() {
+                    Some(id) => Some(id),
+                    None => store::last_in_progress(&*self.db.lock().await)?.filter(|id| !self.failed.contains(id)),
+                };
+                match resume {
+                    Some(id) => self.load_episode(id, true).await?,
+                    None => {
+                        if !self.advance(&[], true).await? {
+                            anyhow::bail!("nothing queued to play");
+                        }
                     }
                 }
-            },
+            }
             Phase::Loading { ref mut play_when_ready, .. } => *play_when_ready = true,
             Phase::Ready { playing: true } => {}
             Phase::Ready { playing: false } => {
@@ -289,6 +309,7 @@ impl Engine {
     }
 
     async fn pause(&mut self) -> anyhow::Result<bool> {
+        self.load_retry = None;
         match self.phase {
             Phase::Idle | Phase::Ready { playing: false } => return Ok(false),
             Phase::Loading { ref mut play_when_ready, .. } => *play_when_ready = false,
@@ -732,6 +753,7 @@ impl Engine {
 
     fn finish_loading(&mut self) {
         let Phase::Loading { play_when_ready, .. } = self.phase else { return };
+        self.load_retry = None;
         self.phase = Phase::Ready { playing: false };
         self.position_at = Instant::now();
         if play_when_ready {
@@ -780,9 +802,17 @@ impl Engine {
         let Some(id) = self.current_id() else { return };
         match self.phase {
             Phase::Idle => {}
-            Phase::Loading { .. } if !file_problem && self.recently_errored(id) => {
-                tracing::warn!("reloading episode {id} after an error failed too; holding it until play is pressed");
+            Phase::Loading { play_when_ready, .. } if !file_problem && self.missing_decoder.is_none() => {
+                self.requested = None;
+                let attempts = self.load_retry.as_ref().filter(|r| r.episode_id == id).map_or(0, |r| r.attempts) + 1;
                 self.hold_loaded().await;
+                if play_when_ready && attempts <= LOAD_RETRIES {
+                    tracing::warn!("couldn't load episode {id}; trying again in {LOAD_RETRY_DELAY:?} ({attempts} of {LOAD_RETRIES})");
+                    self.load_retry = Some(LoadRetry { episode_id: id, at: Some(Instant::now() + LOAD_RETRY_DELAY), attempts });
+                } else {
+                    tracing::warn!("couldn't load episode {id}; holding it paused until play is pressed");
+                    self.load_retry = None;
+                }
             }
             Phase::Loading { play_when_ready, .. } => {
                 // The file can't be played; skip it for the rest of the session.
@@ -832,12 +862,6 @@ impl Engine {
         }
     }
 
-    /// True within ERROR_RETRY_WINDOW of a runtime error in `id`, when a load
-    /// of it is the reload that error started.
-    fn recently_errored(&self, id: i64) -> bool {
-        self.last_error_retry.is_some_and(|(eid, at)| eid == id && at.elapsed() <= ERROR_RETRY_WINDOW)
-    }
-
     /// Takes the pipeline down but keeps the episode and position, paused,
     /// so the player still shows it; play reloads it. For errors from the
     /// audio output, such as a Bluetooth device going away mid-reload.
@@ -853,6 +877,21 @@ impl Engine {
     }
 
     async fn on_tick(&mut self) {
+        let due = self.load_retry.as_ref().filter(|r| r.at.is_some_and(|at| Instant::now() >= at)).map(|r| r.episode_id);
+        if let Some(id) = due {
+            if self.phase == Phase::Idle && self.current_id() == Some(id) {
+                if let Some(retry) = &mut self.load_retry {
+                    retry.at = None;
+                }
+                if let Err(e) = self.load_episode(id, true).await {
+                    tracing::error!("failed to load episode {id} again: {e:#}");
+                    self.load_retry = None;
+                    self.hold_loaded().await;
+                }
+                return;
+            }
+            self.load_retry = None;
+        }
         if let Phase::Loading { since, .. } = self.phase {
             if since.elapsed() > LOAD_TIMEOUT {
                 self.on_error("timed out loading episode".into(), false).await;
@@ -963,4 +1002,11 @@ async fn sleep_until(deadline: Option<Instant>) {
         Some(d) => tokio::time::sleep_until(d.into()).await,
         None => std::future::pending().await,
     }
+}
+
+struct LoadRetry {
+    episode_id: i64,
+    /// None while the retried load is in progress.
+    at: Option<Instant>,
+    attempts: u32,
 }

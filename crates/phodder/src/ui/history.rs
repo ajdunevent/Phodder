@@ -20,6 +20,7 @@ pub(super) fn build_history_page_from_data(
     if episodes.is_empty() {
         return placeholder_page(&gettext("History"), "media-playlist-consecutive-symbolic").upcast();
     }
+    let any_files = episodes.iter().any(|e| e.download_status == "downloaded");
 
     let list_box = gtk4::ListBox::builder()
         .selection_mode(gtk4::SelectionMode::None)
@@ -140,6 +141,11 @@ pub(super) fn build_history_page_from_data(
         content.append(&clear_all_label);
         clear_all_button.set_child(Some(&content));
     }
+    delete_all_button.set_sensitive(any_files);
+    if !any_files {
+        delete_all_button.set_tooltip_text(Some(&gettext("No downloaded files in History")));
+        DELETE_ALL_HISTORY_CONFIRM_ARMED.with(|c| c.set(false));
+    }
     if DELETE_ALL_HISTORY_CONFIRM_ARMED.with(|c| c.get()) {
         delete_all_button.set_label(&gettext("Click again to confirm"));
     }
@@ -168,15 +174,26 @@ pub(super) fn build_history_page_from_data(
                 );
                 return;
             }
+            DELETE_ALL_HISTORY_CONFIRM_ARMED.with(|c| c.set(false));
+            button.set_label(&gettext("Delete All Files"));
             match delete_all_history_files(&db_path) {
-                Ok(()) => {
-                    DELETE_ALL_HISTORY_CONFIRM_ARMED.with(|c| c.set(false));
+                Ok(deleted) => {
+                    let count = deleted.to_string();
+                    toast_overlay.add_toast(libadwaita::Toast::new(&crate::i18n::ngettext_f(
+                        "Deleted {count} file",
+                        "Deleted {count} files",
+                        deleted as u32,
+                        &[("count", &count)],
+                    )));
+                    // Deleting can dequeue, so every tab refreshes.
+                    if let Err(e) = command_tx.send(UiCommand::NotifyDataChanged) {
+                        tracing::error!("failed to send NotifyDataChanged after deleting History files: {e}");
+                    }
                     build_history_page(&tokio_handle, &history_slot, &db_path, &command_tx, &toast_overlay);
                 }
                 Err(e) => {
                     tracing::error!("failed to delete all history files: {e}");
-                    DELETE_ALL_HISTORY_CONFIRM_ARMED.with(|c| c.set(false));
-                    button.set_label(&gettext("Delete All Files"));
+                    toast_overlay.add_toast(libadwaita::Toast::new(&gettext("Couldn't delete files")));
                 }
             }
         });
@@ -201,15 +218,18 @@ pub(super) fn build_history_page_from_data(
                 );
                 return;
             }
+            CLEAR_ALL_HISTORY_CONFIRM_ARMED.with(|c| c.set(false));
+            clear_all_label.set_label(&gettext("Clear All"));
             match clear_all_history(&db_path) {
                 Ok(()) => {
-                    CLEAR_ALL_HISTORY_CONFIRM_ARMED.with(|c| c.set(false));
+                    if let Err(e) = command_tx.send(UiCommand::NotifyDataChanged) {
+                        tracing::error!("failed to send NotifyDataChanged after clearing History: {e}");
+                    }
                     build_history_page(&tokio_handle, &history_slot, &db_path, &command_tx, &toast_overlay);
                 }
                 Err(e) => {
                     tracing::error!("failed to clear all history: {e}");
-                    CLEAR_ALL_HISTORY_CONFIRM_ARMED.with(|c| c.set(false));
-                    clear_all_label.set_label(&gettext("Clear All"));
+                    toast_overlay.add_toast(libadwaita::Toast::new(&gettext("Couldn't clear History")));
                 }
             }
         });
@@ -268,18 +288,19 @@ pub(super) fn clear_history_episode(db_path: &std::path::Path, episode_id: i64) 
 }
 
 /// Deletes every History episode's file.
-pub(super) fn delete_all_history_files(db_path: &std::path::Path) -> rusqlite::Result<()> {
+/// Deletes the file of every History episode that has one; returns how many.
+pub(super) fn delete_all_history_files(db_path: &std::path::Path) -> rusqlite::Result<usize> {
     let conn = phodder_core::open_connection(db_path)?;
     let episode_ids: Vec<i64> = {
-        let mut stmt = conn.prepare("SELECT id FROM episodes WHERE played_locally = 1")?;
+        let mut stmt = conn.prepare("SELECT id FROM episodes WHERE played_locally = 1 AND download_status = 'downloaded'")?;
         let rows = stmt.query_map([], |row| row.get(0))?;
         rows.collect::<rusqlite::Result<Vec<i64>>>()?
     };
     drop(conn);
-    for episode_id in episode_ids {
+    for &episode_id in &episode_ids {
         delete_episode_file(db_path, episode_id)?;
     }
-    Ok(())
+    Ok(episode_ids.len())
 }
 
 /// Deletes every History episode's file, then every row.

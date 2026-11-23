@@ -750,3 +750,50 @@ async fn repeated_output_errors_keep_the_episode_loaded() {
     let resumed = wait_for(&player, "A playing again", 6, playing(a)).await;
     assert!(resumed.position_ms >= 1500, "A resumed in place: {}", resumed.position_ms);
 }
+
+/// A car stereo sends Stop when switched off and Play when it reconnects.
+/// Play with nothing loaded must resume the episode listened to last, even
+/// when another episode has since come to the front of the queue.
+#[tokio::test]
+async fn play_after_stop_resumes_the_last_episode() {
+    let mut f = Fixture::new();
+    let a = f.episode("A", &f.audio_file("a.mp3", 45), true).await;
+    let b = f.episode("B", &f.audio_file("b.mp3", 45), true).await;
+    let player = f.player();
+    player.play_episode(a).await.unwrap();
+    wait_for(&player, "A playing", 5, playing(a)).await;
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    player.stop().await.unwrap();
+    wait_for(&player, "nothing loaded", 5, |s| s.episode.is_none()).await;
+
+    // B moves ahead of A, as a reorder or a higher-priority download would.
+    f.db.lock().await.execute("UPDATE episodes SET group_queue_position = -100 WHERE id = ?1", [b]).unwrap();
+    assert_eq!(phodder_core::queue::next_episode(&*f.db.lock().await).unwrap().map(|n| n.episode_id), Some(b));
+
+    player.play().await.unwrap();
+    let resumed = wait_for(&player, "A resumed", 6, playing(a)).await;
+    assert!(resumed.position_ms >= 2000, "A resumed in place: {}", resumed.position_ms);
+}
+
+/// A load that fails because of the audio output (a car's Bluetooth still
+/// connecting, so the load times out) must not count as a bad file: the
+/// episode is tried again, and the next episode doesn't start.
+#[tokio::test]
+async fn output_failure_while_loading_retries_the_episode() {
+    let mut f = Fixture::new();
+    let a = f.episode("A", &f.audio_file("a.mp3", 45), true).await;
+    let b = f.episode("B", &f.audio_file("b.mp3", 45), true).await;
+    // An output that takes no audio, so loading never completes.
+    let sink = gst::parse::bin_from_description("valve name=gate drop=true ! fakesink sync=true", true).unwrap();
+    let gate = sink.by_name("gate").unwrap();
+    let player = Player::spawn(Config { db: f.db.clone(), audio_sink: Some(sink.upcast()) }).unwrap();
+
+    player.play_episode(a).await.unwrap();
+    // Past the 15 s load timeout; the output then works for the retry.
+    tokio::time::sleep(Duration::from_secs(16)).await;
+    let waiting = player.snapshot();
+    assert_eq!(waiting.episode.map(|e| e.id), Some(a), "A waits to be tried again; B ({b}) didn't start");
+    gate.set_property("drop", false);
+
+    wait_for(&player, "A playing after the retry", 10, playing(a)).await;
+}

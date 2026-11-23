@@ -507,6 +507,17 @@ pub fn build_window(
     // Subscriptions tab.
     let refresh_button = gtk4::Button::from_icon_name("view-refresh-symbolic");
     refresh_button.set_tooltip_text(Some(&gettext("Refresh All")));
+    {
+        // The icon turns while a refresh runs, as in Owlet.
+        let css = gtk4::CssProvider::new();
+        css.load_from_string(
+            "@keyframes phodder-spin { from { -gtk-icon-transform: rotate(0deg); } to { -gtk-icon-transform: rotate(360deg); } }
+             .phodder-spinning image { animation: phodder-spin 1s linear infinite; }",
+        );
+        if let Some(display) = gtk4::gdk::Display::default() {
+            gtk4::style_context_add_provider_for_display(&display, &css, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
+        }
+    }
     header_bar.pack_start(&refresh_button);
     {
         let command_tx = command_tx.clone();
@@ -1090,6 +1101,7 @@ pub fn build_window(
         });
     }
     let notice_overlay = main_toast_overlay.clone();
+    let refresh_button_for_updates = refresh_button.clone();
     gtk4::glib::spawn_future_local(async move {
         while let Ok(update) = update_rx.recv().await {
             match update {
@@ -1263,6 +1275,20 @@ pub fn build_window(
                 UiUpdate::RefreshStatus { offline, feed_problems } => {
                     problems::set_refresh_status(offline, feed_problems);
                     problems::update_banner(&banner);
+                }
+                UiUpdate::SyncStatus(problem) => {
+                    problems::set_sync_status(problem);
+                    problems::update_banner(&banner);
+                }
+                UiUpdate::Refreshing(running) => {
+                    let button = &refresh_button_for_updates;
+                    if running {
+                        button.add_css_class("phodder-spinning");
+                        button.update_property(&[gtk4::accessible::Property::Label(&gettext("Refresh All, refreshing"))]);
+                    } else {
+                        button.remove_css_class("phodder-spinning");
+                        button.update_property(&[gtk4::accessible::Property::Label(&gettext("Refresh All"))]);
+                    }
                 }
             }
         }

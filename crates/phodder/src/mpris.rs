@@ -106,20 +106,26 @@ impl MprisPlayer {
 #[zbus::interface(name = "org.mpris.MediaPlayer2.Player")]
 impl MprisPlayer {
     async fn play(&self) -> zbus::fdo::Result<()> {
+        tracing::info!("MPRIS Play");
         self.core.player.play().await.map_err(to_fdo_err)
     }
 
     async fn pause(&self) -> zbus::fdo::Result<()> {
+        tracing::info!("MPRIS Pause");
         self.core.player.pause().await.map_err(to_fdo_err)
     }
 
     #[zbus(name = "PlayPause")]
     async fn play_pause(&self) -> zbus::fdo::Result<()> {
+        tracing::info!("MPRIS PlayPause");
         self.core.player.toggle_play().await.map_err(to_fdo_err)
     }
 
+    /// Pauses. Car stereos send Stop when switched off, and unloading the
+    /// episode then lost it from the player.
     async fn stop(&self) -> zbus::fdo::Result<()> {
-        self.core.player.stop().await.map_err(to_fdo_err)
+        tracing::info!("MPRIS Stop: pausing");
+        self.core.player.pause().await.map_err(to_fdo_err)
     }
 
     /// Skips forward; a double press moves to the next episode instead.
