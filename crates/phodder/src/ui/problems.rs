@@ -208,7 +208,7 @@ pub(super) fn show_details(
         let presentation = presentation.clone();
         row.connect_activated(move |_| {
             presentation.close();
-            let _ = gtk4::prelude::WidgetExt::activate_action(&window, "win.show-settings", None);
+            let _ = gtk4::prelude::WidgetExt::activate_action(&window, "win.show-sync-settings", None);
         });
     }
     {

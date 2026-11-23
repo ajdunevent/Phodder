@@ -43,6 +43,21 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.2.0" date="2026-11-23">
+      <description>
+        <ul>
+          <li>The Refresh button turns smoothly instead of wobbling.</li>
+          <li>Playback resumes after a call you didn't answer.</li>
+          <li>Select several episodes at once to download, queue, mark, or delete them together. Long press or right click an episode, or use the Select button.</li>
+          <li>Podcasts can have their own playback speed. Changing the speed while one plays lasts for that episode.</li>
+          <li>Trim silence shortens long pauses, for every podcast or only some.</li>
+          <li>Back up your library to a file and restore it, from the main menu.</li>
+          <li>Play an episode before subscribing, from a podcast's preview in Add Podcast.</li>
+          <li>Calls pause playback on every modem, including a second SIM.</li>
+          <li>A sync problem's Details open Settings at the Sync section.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.5" date="2026-11-23">
       <description>
         <ul>

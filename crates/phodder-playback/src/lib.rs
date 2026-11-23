@@ -5,6 +5,7 @@
 mod engine;
 mod pipeline;
 mod store;
+mod trim;
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -77,6 +78,9 @@ pub struct Snapshot {
     pub loading: bool,
     /// Stored chapters, or those embedded in the file. Sorted by start.
     pub chapters: Arc<Vec<Chapter>>,
+    /// `episode` is a preview streamed before subscribing; it isn't in the
+    /// database.
+    pub preview: bool,
 }
 
 impl Snapshot {
@@ -127,6 +131,7 @@ pub enum Event {
     /// `requested` when the user chose it; the previous episode is then
     /// reloaded, paused, instead of playing the next one.
     EpisodeFailed { episode_id: i64, message: String, file_problem: bool, requested: bool },
+    PreviewFailed { message: String },
 }
 
 #[derive(Debug)]
@@ -149,11 +154,17 @@ pub(crate) enum Command {
     SkipForward,
     SkipBackward,
     SetRate(f64),
+    /// Reads a podcast's speed and trimming again (Some), or the player's
+    /// Trim Silence setting (None), for the loaded episode.
+    ApplyPodcastSettings(Option<i64>),
     /// Replaces an end-of-episode sleep timer too; None cancels both.
     SetSleepTimer(Option<Duration>),
     /// Finishes the current episode, then loads the next one paused.
     SleepAtEpisodeEnd,
     PlayEpisode(i64),
+    /// Streams an episode of a podcast that isn't subscribed. Nothing about
+    /// it is saved: no position, History or sync.
+    PlayPreview { uri: String, info: EpisodeInfo },
     RestoreLastInProgress,
     Shutdown,
 }
@@ -298,6 +309,9 @@ impl Player {
     pub async fn play_episode(&self, episode_id: i64) -> anyhow::Result<()> {
         self.request(Command::PlayEpisode(episode_id)).await.map(drop)
     }
+    pub async fn play_preview(&self, uri: String, info: EpisodeInfo) -> anyhow::Result<()> {
+        self.request(Command::PlayPreview { uri, info }).await.map(drop)
+    }
     pub async fn restore_last_in_progress(&self) -> anyhow::Result<()> {
         self.request(Command::RestoreLastInProgress).await.map(drop)
     }
@@ -331,6 +345,11 @@ impl Player {
     }
     pub fn send_set_rate(&self, rate: f64) {
         self.send(Command::SetRate(rate))
+    }
+    /// After a podcast's playback settings change (Some), or the player's
+    /// Trim Silence setting (None).
+    pub fn send_apply_podcast_settings(&self, subscription_id: Option<i64>) {
+        self.send(Command::ApplyPodcastSettings(subscription_id))
     }
     pub fn send_set_sleep_timer(&self, duration: Option<Duration>) {
         self.send(Command::SetSleepTimer(duration))

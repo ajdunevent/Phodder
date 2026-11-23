@@ -25,6 +25,8 @@ mod sync_settings;
 mod settings;
 mod widgets;
 mod transcript;
+mod selection;
+mod backup;
 pub(crate) mod client;
 
 use window::*;
@@ -65,7 +67,10 @@ pub enum UiUpdate {
         sleep_timer_remaining_secs: Option<u64>,
         /// The sleep timer stops playback when this episode ends.
         sleep_at_episode_end: bool,
+        /// None for a preview, which isn't in the database.
         episode_id: Option<i64>,
+        /// Streaming an episode of a podcast before subscribing.
+        preview: bool,
         has_chapters: bool,
         /// Chapter starts, for marks on the scrub bar.
         chapter_starts_ms: Arc<Vec<u64>>,
@@ -123,8 +128,13 @@ pub enum UiCommand {
     /// Skip buttons; the amounts come from settings.
     SkipForward,
     SkipBackward,
-    /// Global, persisted, and applied to whatever loads next.
+    PlayPreview { url: String, title: String, podcast_title: String, artwork_local_path: Option<String> },
+    /// The player's speed. A podcast with its own speed keeps it; for an
+    /// episode of one that's playing, the change lasts for that episode.
     SetPlaybackRate(f64),
+    /// A podcast's speed or trimming changed (Some), or the player's Trim
+    /// Silence setting (None); the loaded episode picks it up.
+    ApplyPodcastPlayback(Option<i64>),
     /// `None` cancels the timer.
     SetSleepTimer(Option<std::time::Duration>),
     SleepAtEpisodeEnd,
@@ -223,6 +233,11 @@ pub enum UiCommand {
     },
     ExportOpml {
         path: std::path::PathBuf,
+        reply_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
+    /// A copy of the backup in the data directory, which the service deletes.
+    RestoreBackup {
+        path: String,
         reply_tx: tokio::sync::oneshot::Sender<Result<(), String>>,
     },
     /// Sync account commands run on the Tokio runtime: reqwest and oo7 need
@@ -569,6 +584,10 @@ impl UiCommand {
             UiCommand::SkipForward => service(S::SkipForward),
             UiCommand::SkipBackward => service(S::SkipBackward),
             UiCommand::SetPlaybackRate(rate) => service(S::SetPlaybackRate(rate)),
+            UiCommand::ApplyPodcastPlayback(subscription_id) => service(S::ApplyPodcastPlayback(subscription_id)),
+            UiCommand::PlayPreview { url, title, podcast_title, artwork_local_path } => {
+                service(S::PlayPreview { url, title, podcast_title, artwork_local_path })
+            }
             UiCommand::SetSleepTimer(duration) => service(S::SetSleepTimer(duration.map(|d| d.as_millis() as u64))),
             UiCommand::SleepAtEpisodeEnd => service(S::SleepAtEpisodeEnd),
             UiCommand::RefreshSubscription(id) => service(S::RefreshSubscription(id)),
@@ -582,6 +601,7 @@ impl UiCommand {
                 Routed::Service(S::QueueBackCatalogEpisode { subscription_id, episode, skip_enqueue }, Some(reply_tx))
             }
             UiCommand::RequeueEpisode { episode_id, reply_tx } => Routed::Service(S::RequeueEpisode(episode_id), Some(reply_tx)),
+            UiCommand::RestoreBackup { path, reply_tx } => Routed::Service(S::RestoreBackup(path), Some(reply_tx)),
             UiCommand::ManuallyDownloadEpisode { episode_id, skip_enqueue, reply_tx } => {
                 Routed::Service(S::ManuallyDownloadEpisode { episode_id, skip_enqueue }, Some(reply_tx))
             }
@@ -636,6 +656,7 @@ mod tests {
             sleep_timer_remaining_secs: None,
             sleep_at_episode_end: false,
             episode_id: Some(9),
+            preview: false,
             has_chapters: true,
             chapter_starts_ms: Arc::new(vec![0, 60_000]),
             chapter_title: Some("Intro".into()),

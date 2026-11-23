@@ -486,6 +486,20 @@ pub fn update_subscription_title(conn: &Connection, subscription_id: i64, title:
     Ok(())
 }
 
+/// A podcast's own speed and silence trimming; None for each leaves it to
+/// the player.
+pub fn subscription_playback(conn: &Connection, subscription_id: i64) -> rusqlite::Result<(Option<f64>, Option<bool>)> {
+    conn.query_row("SELECT playback_rate, trim_silence FROM subscriptions WHERE id = ?1", [subscription_id], |row| Ok((row.get(0)?, row.get(1)?)))
+}
+
+pub fn set_subscription_playback(conn: &Connection, subscription_id: i64, rate: Option<f64>, trim_silence: Option<bool>) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE subscriptions SET playback_rate = ?1, trim_silence = ?2 WHERE id = ?3",
+        params![rate, trim_silence, subscription_id],
+    )?;
+    Ok(())
+}
+
 /// Auto-download, notifications, filter rules and expiry (minutes)
 /// together. Filter rules are stored as JSON; a serialization error is
 /// wrapped in rusqlite's error type, since this crate doesn't use anyhow.

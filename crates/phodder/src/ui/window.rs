@@ -233,7 +233,7 @@ pub fn build_window(
         .margin_top(6)
         .margin_bottom(6)
         .build();
-    for rate in [0.5_f64, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0] {
+    for rate in PLAYBACK_RATES {
         let rate_button = gtk4::Button::builder().label(format!("{rate:.2}×")).css_classes(["flat"]).build();
         {
             let command_tx = command_tx.clone();
@@ -476,7 +476,7 @@ pub fn build_window(
     // Narrow/wide state, written by the width tracking below and read by
     // Subscriptions for thumbnail size. Starts narrow.
     let is_narrow: std::rc::Rc<std::cell::Cell<bool>> = std::rc::Rc::new(std::cell::Cell::new(true));
-    build_queue_page(&tokio_handle, &queue_slot, db_path, &command_tx);
+    build_queue_page(&tokio_handle, &queue_slot, db_path, &command_tx, &main_toast_overlay);
     build_library_page(&tokio_handle, &library_slot, db_path, &progress_registry, &command_tx, &main_toast_overlay);
     build_subscriptions_page(&tokio_handle, db_path, &subscriptions_slot, &is_narrow, &command_tx, &dialog_sheet);
     build_history_page(&tokio_handle, &history_slot, db_path, &command_tx, &main_toast_overlay);
@@ -505,13 +505,18 @@ pub fn build_window(
 
     // Refresh is app-wide, so it lives in the header bar; Add Feed is on the
     // Subscriptions tab.
-    let refresh_button = gtk4::Button::from_icon_name("view-refresh-symbolic");
+    let refresh_button = gtk4::Button::from_icon_name("phodder-refresh-symbolic");
     refresh_button.set_tooltip_text(Some(&gettext("Refresh All")));
     {
-        // The icon turns while a refresh runs, as in Owlet.
+        // The icon turns while a refresh runs, as in Owlet. The bundled
+        // icon's loop is centred at (7.5, 8.5), half a pixel off the icon's
+        // centre, so it turns about that point to keep from wobbling.
         let css = gtk4::CssProvider::new();
         css.load_from_string(
-            "@keyframes phodder-spin { from { -gtk-icon-transform: rotate(0deg); } to { -gtk-icon-transform: rotate(360deg); } }
+            "@keyframes phodder-spin {
+               from { -gtk-icon-transform: translate(-0.5px, 0.5px) rotate(0deg) translate(0.5px, -0.5px); }
+               to { -gtk-icon-transform: translate(-0.5px, 0.5px) rotate(360deg) translate(0.5px, -0.5px); }
+             }
              .phodder-spinning image { animation: phodder-spin 1s linear infinite; }",
         );
         if let Some(display) = gtk4::gdk::Display::default() {
@@ -624,6 +629,10 @@ pub fn build_window(
     opml_section.append(Some(&gettext("Import OPML…")), Some("win.import-opml"));
     opml_section.append(Some(&gettext("Export OPML…")), Some("win.export-opml"));
     main_menu_model.append_section(None, &opml_section);
+    let backup_section = gtk4::gio::Menu::new();
+    backup_section.append(Some(&gettext("Back Up Library…")), Some("win.back-up"));
+    backup_section.append(Some(&gettext("Restore Library…")), Some("win.restore"));
+    main_menu_model.append_section(None, &backup_section);
     let quit_section = gtk4::gio::Menu::new();
     quit_section.append(Some(&gettext("Keyboard Shortcuts")), Some("win.show-shortcuts"));
     quit_section.append(Some(&gettext("About Phodder")), Some("win.about"));
@@ -635,6 +644,41 @@ pub fn build_window(
         popover.connect_map(|popover| name_menu_items(popover.upcast_ref()));
     }
     header_bar.pack_end(&menu_button);
+
+    // Selects episodes on the visible tab; hidden on Subscriptions. Leaving
+    // a tab leaves its selection.
+    let select_button = gtk4::ToggleButton::builder().icon_name("selection-mode-symbolic").tooltip_text(gettext("Select Episodes")).build();
+    header_bar.pack_end(&select_button);
+    {
+        let selectable = |name: Option<gtk4::glib::GString>| name.filter(|n| matches!(n.as_str(), "queue" | "library" | "history")).map(|n| n.to_string());
+        for name in ["queue", "library", "history"] {
+            let select_button = select_button.clone();
+            let view_stack = view_stack.clone();
+            selection::scope(name).connect_mode_changed(move |on| {
+                if view_stack.visible_child_name().as_deref() == Some(name) && select_button.is_active() != on {
+                    select_button.set_active(on);
+                }
+            });
+        }
+        {
+            let view_stack = view_stack.clone();
+            select_button.connect_toggled(move |button| {
+                if let Some(name) = selectable(view_stack.visible_child_name()) {
+                    selection::scope(&name).set_active(button.is_active());
+                }
+            });
+        }
+        let update = {
+            let select_button = select_button.clone();
+            move |stack: &libadwaita::ViewStack| {
+                selection::exit_all();
+                select_button.set_active(false);
+                select_button.set_visible(selectable(stack.visible_child_name()).is_some());
+            }
+        };
+        update(&view_stack);
+        view_stack.connect_visible_child_name_notify(update);
+    }
 
     let window = libadwaita::ApplicationWindow::builder()
         .application(app)
@@ -659,6 +703,7 @@ pub fn build_window(
         let window = window.clone();
         let command_tx = command_tx.clone();
         let main_toast_overlay = main_toast_overlay.clone();
+        backup::install_backup_actions(&window, &db_path, &command_tx, &main_toast_overlay);
         let import_opml_action = gtk4::gio::SimpleAction::new("import-opml", None);
         window.add_action(&import_opml_action);
         import_opml_action.connect_activate(move |_, _| {
@@ -761,11 +806,19 @@ pub fn build_window(
         let skip_backward_button = skip_backward_button.clone();
         let skip_forward_button = skip_forward_button.clone();
         let command_tx = command_tx.clone();
-        let settings_action = gtk4::gio::SimpleAction::new("show-settings", None);
-        window.add_action(&settings_action);
-        settings_action.connect_activate(move |_, _| {
-            show_settings_dialog(&window, db_path.clone(), &dialog_sheet, &skip_backward_button, &skip_forward_button, &command_tx);
-        });
+        for (name, at_sync) in [("show-settings", false), ("show-sync-settings", true)] {
+            let settings_action = gtk4::gio::SimpleAction::new(name, None);
+            window.add_action(&settings_action);
+            let window = window.clone();
+            let db_path = db_path.clone();
+            let dialog_sheet = dialog_sheet.clone();
+            let skip_backward_button = skip_backward_button.clone();
+            let skip_forward_button = skip_forward_button.clone();
+            let command_tx = command_tx.clone();
+            settings_action.connect_activate(move |_, _| {
+                show_settings_dialog(&window, db_path.clone(), &dialog_sheet, &skip_backward_button, &skip_forward_button, &command_tx, at_sync);
+            });
+        }
     }
     {
         let about_action = gtk4::gio::SimpleAction::new("about", None);
@@ -983,7 +1036,7 @@ pub fn build_window(
         let is_narrow = is_narrow.clone();
         let dialog_sheet = dialog_sheet.clone();
         std::rc::Rc::new(move || {
-            build_queue_page(&tokio_handle, &queue_slot, &db_path, &command_tx);
+            build_queue_page(&tokio_handle, &queue_slot, &db_path, &command_tx, &main_toast_overlay);
             build_library_page(&tokio_handle, &library_slot, &db_path, &progress_registry, &command_tx, &main_toast_overlay);
             build_subscriptions_page(&tokio_handle, &db_path, &subscriptions_slot, &is_narrow, &command_tx, &dialog_sheet);
             build_history_page(&tokio_handle, &history_slot, &db_path, &command_tx, &main_toast_overlay);
@@ -1116,6 +1169,7 @@ pub fn build_window(
                     sleep_timer_remaining_secs,
                     sleep_at_episode_end,
                     episode_id,
+                    preview,
                     has_chapters,
                     chapter_starts_ms,
                     chapter_title,
@@ -1198,9 +1252,11 @@ pub fn build_window(
                     duration_label.set_label(&duration_us.map(|d| format_duration_ms(d / 1000)).unwrap_or_else(|| "·:·".to_string()));
 
                     let loaded = status != "Stopped";
-                    for button in [&restart_button, &next_episode_button, &skip_backward_button, &skip_forward_button, &episode_details_button] {
+                    for button in [&restart_button, &next_episode_button, &skip_backward_button, &skip_forward_button] {
                         button.set_sensitive(loaded);
                     }
+                    episode_details_button.set_sensitive(loaded && !preview);
+                    discover::set_preview_play_state(preview, status == "Playing");
                     for button in [&previous_chapter_button, &next_chapter_button] {
                         button.set_sensitive(loaded && has_chapters);
                     }
@@ -1225,7 +1281,7 @@ pub fn build_window(
                     }
                 }
                 UiUpdate::DataChanged => {
-                    if current_episode_id.get().is_none() {
+                    if current_episode_id.get().is_none() && !bottom_sheet.can_open() {
                         refresh_idle_mini_player();
                     }
                     // Rebuilds at once, then batches further changes for a

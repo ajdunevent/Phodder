@@ -491,32 +491,11 @@ fn actions(container: &gtk4::Box, episode_id: i64, d: &EpisodeDetail, mode: Deta
         wrap.append(&delete);
     }
     if mode == DetailsMode::History {
-        // Two taps: the first arms it for a few seconds.
         let clear = icon_button(&gettext("Clear from History"), "edit-clear-symbolic", &["destructive-action"]);
-        let armed = Rc::new(Cell::new(false));
         let db_path = ctx.db_path.clone();
         let toast_overlay = ctx.toast_overlay.clone();
         let send = send.clone();
         clear.connect_clicked(move |button| {
-            if !armed.get() {
-                armed.set(true);
-                button.set_icon_name("object-select-symbolic");
-                button.set_tooltip_text(Some(&gettext("Tap again to clear")));
-                announce(button, &gettext("Press again to clear"));
-                let armed_check = armed.clone();
-                let armed_clear = armed.clone();
-                let button = button.clone();
-                auto_expire_confirm_arm(
-                    move || armed_check.get(),
-                    move || armed_clear.set(false),
-                    move || {
-                        button.set_icon_name("edit-clear-symbolic");
-                        button.set_tooltip_text(Some(&gettext("Clear from History")));
-                    },
-                );
-                return;
-            }
-            armed.set(false);
             match clear_history_episode(&db_path, episode_id) {
                 Ok(()) => {
                     // Clearing deletes the file, which can dequeue.

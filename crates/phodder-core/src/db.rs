@@ -11,7 +11,7 @@ use std::path::Path;
 
 /// The version schema.sql describes. Bumped with each step added to
 /// MIGRATIONS.
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 const SCHEMA: &str = include_str!("../schema.sql");
 const SCHEMA_V1: &str = include_str!("../migrations/v1.sql");
@@ -20,7 +20,11 @@ const SCHEMA_V1: &str = include_str!("../migrations/v1.sql");
 /// runs in one transaction with its version bump, with foreign keys off so
 /// a step can rebuild a table (SQLite's ALTER TABLE can't change most
 /// constraints); they are checked before committing.
-const MIGRATIONS: &[&str] = &[];
+const MIGRATIONS: &[&str] = &[
+    // 2: per-podcast speed and silence trimming.
+    "ALTER TABLE subscriptions ADD COLUMN playback_rate REAL;
+     ALTER TABLE subscriptions ADD COLUMN trim_silence INTEGER;",
+];
 
 /// How long a process waits for another one migrating the same file.
 const MIGRATION_LOCK_WAIT: std::time::Duration = std::time::Duration::from_secs(30);

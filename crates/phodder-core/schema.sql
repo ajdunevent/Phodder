@@ -93,7 +93,12 @@ CREATE TABLE subscriptions (
     -- reports everything again. Synced tombstones are hard-deleted.
     synced_with_account_id   INTEGER REFERENCES sync_accounts(id) ON DELETE SET NULL,
 
-    created_at              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    created_at              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+
+    -- Playback. NULL uses the player's: its current speed, and the Trim
+    -- Silence setting.
+    playback_rate            REAL,
+    trim_silence             INTEGER    -- bool
 );
 
 CREATE INDEX idx_subscriptions_group ON subscriptions(group_id);

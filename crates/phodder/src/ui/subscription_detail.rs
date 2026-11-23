@@ -564,6 +564,7 @@ pub(super) fn show_subscription_detail(
     filters_group.add(&rules_container);
     let settings_page = libadwaita::PreferencesPage::new();
     settings_page.add(&general_group);
+    settings_page.add(&build_playback_section(&db_path, subscription_id, &command_tx, &settings_toast_overlay));
     settings_page.add(&filters_group);
     settings_page.add(&build_chapter_skip_section(&db_path, subscription_id, &sub.chapter_skip_rules));
     settings_toast_overlay.set_child(Some(&settings_page));
@@ -890,6 +891,72 @@ pub(crate) fn delete_subscription_and_files_hard(db_path: &std::path::Path, subs
 
 /// "Skip Chapters": chapter-title patterns, matched like download filter
 /// patterns. Saved on every change, separately from the other settings.
+/// Speed and silence trimming, each "Same as player" or the podcast's own.
+/// Saved at once; a playing episode of this podcast picks the change up.
+fn build_playback_section(
+    db_path: &std::path::Path,
+    subscription_id: i64,
+    command_tx: &UnboundedSender<UiCommand>,
+    toast_overlay: &libadwaita::ToastOverlay,
+) -> libadwaita::PreferencesGroup {
+    let (rate, trim) = phodder_core::open_connection(db_path)
+        .and_then(|conn| phodder_core::subscriptions::subscription_playback(&conn, subscription_id))
+        .unwrap_or((None, None));
+    let same = gettext("Same as player");
+    let mut speed_labels = vec![same.clone()];
+    speed_labels.extend(PLAYBACK_RATES.iter().map(|r| format!("{r:.2}×")));
+    let speed_row = libadwaita::ComboRow::builder()
+        .title(gettext("Speed"))
+        .model(&gtk4::StringList::new(&speed_labels.iter().map(String::as_str).collect::<Vec<_>>()))
+        .selected(rate.and_then(|r| PLAYBACK_RATES.iter().position(|c| (c - r).abs() < 0.001)).map_or(0, |i| i as u32 + 1))
+        .build();
+    let trim_labels = [same, gettext("On"), gettext("Off")];
+    let trim_row = libadwaita::ComboRow::builder()
+        .title(gettext("Trim silence"))
+        .model(&gtk4::StringList::new(&trim_labels.iter().map(String::as_str).collect::<Vec<_>>()))
+        .selected(match trim {
+            None => 0,
+            Some(true) => 1,
+            Some(false) => 2,
+        })
+        .build();
+    let save = {
+        let db_path = db_path.to_path_buf();
+        let command_tx = command_tx.clone();
+        let toast_overlay = toast_overlay.clone();
+        let speed_row = speed_row.clone();
+        let trim_row = trim_row.clone();
+        std::rc::Rc::new(move || {
+            let rate = (speed_row.selected() as usize).checked_sub(1).and_then(|i| PLAYBACK_RATES.get(i).copied());
+            let trim = match trim_row.selected() {
+                1 => Some(true),
+                2 => Some(false),
+                _ => None,
+            };
+            match phodder_core::open_connection(&db_path)
+                .and_then(|conn| phodder_core::subscriptions::set_subscription_playback(&conn, subscription_id, rate, trim))
+            {
+                Ok(()) => {
+                    let _ = command_tx.send(UiCommand::ApplyPodcastPlayback(Some(subscription_id)));
+                }
+                Err(e) => {
+                    tracing::error!("failed to save playback settings for subscription {subscription_id}: {e}");
+                    toast_overlay.add_toast(libadwaita::Toast::new(&gettext("Couldn't save changes")));
+                }
+            }
+        })
+    };
+    {
+        let save = save.clone();
+        speed_row.connect_selected_notify(move |_| save());
+    }
+    trim_row.connect_selected_notify(move |_| save());
+    let group = libadwaita::PreferencesGroup::builder().title(gettext("Playback")).build();
+    group.add(&speed_row);
+    group.add(&trim_row);
+    group
+}
+
 fn build_chapter_skip_section(db_path: &std::path::Path, subscription_id: i64, rules: &[phodder_core::filter::FilterRule]) -> libadwaita::PreferencesGroup {
     let group = libadwaita::PreferencesGroup::builder()
         .title(gettext("Skip Chapters"))

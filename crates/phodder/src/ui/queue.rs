@@ -5,11 +5,15 @@ pub(super) fn build_queue_page_from_data(
     queue: Vec<phodder_core::queue::QueuedEpisodeSummary>,
     db_path: &std::path::Path,
     command_tx: &UnboundedSender<UiCommand>,
+    toast_overlay: &libadwaita::ToastOverlay,
 ) -> gtk4::Widget {
     QUEUE_PLAY_BUTTONS.with(|buttons| buttons.borrow_mut().clear());
+    let selection = selection::scope("queue");
     if queue.is_empty() {
+        selection.set_active(false);
         return placeholder_page(&gettext("Queue"), "view-list-symbolic").upcast();
     }
+    selection.begin_page(db_path, command_tx, toast_overlay);
 
     let list_box = gtk4::ListBox::builder()
         .selection_mode(gtk4::SelectionMode::None)
@@ -146,6 +150,7 @@ pub(super) fn build_queue_page_from_data(
             64,
         );
         episode_row.add_prefix(&thumbnail);
+        selection.attach_row(&episode_row, selection::Item::Episode(episode.episode_id));
 
         // The one action: Play, or Pause for the playing episode. Removing
         // from the queue is in the episode's details.
@@ -295,11 +300,16 @@ pub(super) fn build_queue_page_from_data(
 
     // Episode rows are nested in a wrapper row (for the grab handle), so
     // activation arrives here rather than on the inner row.
-    list_box.connect_row_activated(|_, row| {
-        if let Some(id) = row.widget_name().strip_prefix("queue-row-").and_then(|id| id.parse().ok()) {
-            open_episode_details(id);
-        }
-    });
+    {
+        let selection = selection.clone();
+        list_box.connect_row_activated(move |_, row| {
+            if let Some(id) = row.widget_name().strip_prefix("queue-row-").and_then(|id| id.parse().ok()) {
+                if !selection.handle_activate(&selection::Item::Episode(id)) {
+                    open_episode_details(id);
+                }
+            }
+        });
+    }
 
     // As in Library: see build_library_page.
     let bottom_divider_row = gtk4::ListBoxRow::builder()
@@ -364,7 +374,7 @@ pub(super) fn build_queue_page_from_data(
     scrolled.add_controller(edge_drop_target);
 
     refresh_queue_play_buttons();
-    scrolled.upcast()
+    selection.wrap(&scrolled, None, false).upcast()
 }
 
 /// Loads the queue off the GTK thread and swaps in the tab's widget.
@@ -373,10 +383,12 @@ pub(super) fn build_queue_page(
     queue_slot: &gtk4::Box,
     db_path: &std::path::Path,
     command_tx: &UnboundedSender<UiCommand>,
+    toast_overlay: &libadwaita::ToastOverlay,
 ) {
     let queue_slot = queue_slot.clone();
     let db_path_owned = db_path.to_path_buf();
     let command_tx = command_tx.clone();
+    let toast_overlay = toast_overlay.clone();
     run_db_op(
         tokio_handle,
         db_path.to_path_buf(),
@@ -386,7 +398,7 @@ pub(super) fn build_queue_page(
                 if slot_data_unchanged(&queue_slot, &queue) {
                     return;
                 }
-                let widget = build_queue_page_from_data(queue, &db_path_owned, &command_tx);
+                let widget = build_queue_page_from_data(queue, &db_path_owned, &command_tx, &toast_overlay);
                 replace_slot_content(&queue_slot, widget);
             }
             Err(e) => tracing::error!("failed to load queue: {e}"),

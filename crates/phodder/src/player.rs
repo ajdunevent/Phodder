@@ -143,6 +143,10 @@ impl PlayerCore {
                     let error = crate::i18n::gettext_f("Couldn't play an episode, so it was skipped: {error}", &[("error", &message)]);
                     let _ = self.ui_tx.send(crate::ui::UiUpdate::Error(error)).await;
                 }
+                Event::PreviewFailed { message } => {
+                    tracing::warn!("preview could not be played: {message}");
+                    let _ = self.ui_tx.send(crate::ui::UiUpdate::Notice(crate::i18n::gettext("Couldn't play the preview"))).await;
+                }
             }
         }
     }
@@ -172,7 +176,8 @@ impl PlayerCore {
             playback_rate: snap.rate,
             sleep_timer_remaining_secs: snap.sleep_remaining().map(|d| d.as_secs()),
             sleep_at_episode_end: snap.sleep_at_episode_end,
-            episode_id: snap.episode.as_ref().map(|e| e.id),
+            episode_id: snap.episode.as_ref().filter(|_| !snap.preview).map(|e| e.id),
+            preview: snap.preview,
             has_chapters: !snap.chapters.is_empty(),
             chapter_starts_ms: std::sync::Arc::new(snap.chapters.iter().map(|c| c.start_ms).collect()),
             chapter_title: snap.current_chapter().map(|c| c.title.clone()).filter(|t| !t.is_empty()),

@@ -54,6 +54,8 @@ struct Loaded {
     last_chapter: Option<usize>,
     /// The chapter the user last sought into, which auto-skip leaves alone.
     user_chapter: Option<usize>,
+    /// Streamed before subscribing; `info.id` means nothing.
+    preview: bool,
 }
 
 struct Engine {
@@ -66,6 +68,9 @@ struct Engine {
     phase: Phase,
     current: Option<Loaded>,
     rate: f64,
+    /// The episode whose speed the user changed while it was loaded. It
+    /// keeps that speed through reloads instead of its podcast's.
+    rate_chosen_for: Option<i64>,
     /// Last known position, or the target of a pending load/seek. Only
     /// overwritten by a successful position query, so a failed query never
     /// turns into a saved position of 0.
@@ -124,6 +129,7 @@ pub(crate) fn spawn(
         sleep_at_episode_end: false,
         loading: false,
         chapters: Arc::default(),
+        preview: false,
     });
     let engine = Engine {
         pipeline,
@@ -134,6 +140,7 @@ pub(crate) fn spawn(
         phase: Phase::Idle,
         current: None,
         rate: 1.0,
+        rate_chosen_for: None,
         position_ms: 0,
         position_at: now,
         duration_ms: None,
@@ -239,6 +246,7 @@ impl Engine {
                 self.user_seek(|e| e.seek_by(-(ms as i64)))
             }
             Command::SetRate(rate) => self.set_rate(rate).await,
+            Command::ApplyPodcastSettings(subscription_id) => self.apply_podcast_settings(subscription_id).await,
             Command::SetSleepTimer(duration) => {
                 self.sleep_deadline = duration.map(|d| Instant::now() + d);
                 self.sleep_at_episode_end = false;
@@ -252,6 +260,7 @@ impl Engine {
                 Ok(true)
             }
             Command::PlayEpisode(id) => self.play_episode(id).await,
+            Command::PlayPreview { uri, info } => self.play_preview(uri, info).await,
             Command::RestoreLastInProgress => self.restore_last_in_progress().await,
             Command::Shutdown => Ok(true),
         }
@@ -261,8 +270,58 @@ impl Engine {
         matches!(self.phase, Phase::Loading { play_when_ready: true, .. } | Phase::Ready { playing: true })
     }
 
+    /// None for a preview, so nothing about it reaches the database.
     fn current_id(&self) -> Option<i64> {
-        self.current.as_ref().map(|c| c.info.id)
+        self.current.as_ref().filter(|c| !c.preview).map(|c| c.info.id)
+    }
+
+    fn is_preview(&self) -> bool {
+        self.current.as_ref().is_some_and(|c| c.preview)
+    }
+
+    async fn play_preview(&mut self, uri: String, info: EpisodeInfo) -> anyhow::Result<bool> {
+        self.persist().await;
+        self.requested = None;
+        self.load_retry = None;
+        self.rate_chosen_for = None;
+        {
+            let db = self.db.lock().await;
+            self.rate = store::saved_rate(&db);
+            self.pipeline.trim.set_enabled(store::trim_silence(&db));
+        }
+        self.pipeline.unload();
+        while let Some(Some(msg)) = self.bus.next().now_or_never() {
+            tracing::trace!("discarding stale bus message {:?}", msg.type_());
+        }
+        tracing::info!("streaming a preview: {uri}");
+        self.missing_decoder = None;
+        self.current = Some(Loaded {
+            info,
+            chapters: Arc::default(),
+            played_threshold_ms: None,
+            threshold_marked: false,
+            last_chapter: None,
+            user_chapter: None,
+            preview: true,
+        });
+        self.position_ms = 0;
+        self.position_at = Instant::now();
+        self.duration_ms = None;
+        self.seek_in_flight = None;
+        self.seek_queued = false;
+        self.paused_at_ms = None;
+        self.phase = Phase::Loading { stage: LoadStage::Prerolling, play_when_ready: true, since: Instant::now() };
+        match self.pipeline.open_uri(&uri) {
+            Ok(gst::StateChangeSuccess::Async) => {}
+            Ok(_) => self.on_prerolled(),
+            Err(e) => {
+                self.clear_loaded();
+                self.publish();
+                return Err(e);
+            }
+        }
+        self.publish();
+        Ok(true)
     }
 
     async fn play(&mut self) -> anyhow::Result<bool> {
@@ -436,6 +495,11 @@ impl Engine {
         if self.current_id() != Some(id) {
             self.persist().await;
         }
+        let keep_rate = self.rate_chosen_for == Some(id);
+        if !keep_rate {
+            self.rate_chosen_for = None;
+        }
+        self.apply_episode_settings(id, keep_rate).await?;
         self.pipeline.unload();
         // Messages from the previous stream are queued once the
         // pipeline reaches NULL. Draining them keeps a stale EOS or
@@ -453,6 +517,7 @@ impl Engine {
             threshold_marked: false,
             last_chapter: None,
             user_chapter: None,
+            preview: false,
         });
         self.position_ms = episode.resume_ms;
         self.position_at = Instant::now();
@@ -609,12 +674,54 @@ impl Engine {
         }
     }
 
+    /// Sets the player's speed. When the loaded episode's podcast has its
+    /// own, the change applies to this episode only, and the podcast's
+    /// speed is left alone.
     async fn set_rate(&mut self, rate: f64) -> anyhow::Result<bool> {
         if !RATE_RANGE.contains(&rate) {
             anyhow::bail!("playback rate {rate} outside {RATE_RANGE:?}");
         }
-        self.rate = rate;
         store::save_rate(&*self.db.lock().await, rate)?;
+        self.rate_chosen_for = self.current_id();
+        self.apply_rate(rate)
+    }
+
+    async fn apply_episode_settings(&mut self, id: i64, keep_rate: bool) -> anyhow::Result<()> {
+        let (podcast, global_rate, global_trim) = {
+            let db = self.db.lock().await;
+            (store::podcast_playback(&db, id)?, store::saved_rate(&db), store::trim_silence(&db))
+        };
+        self.pipeline.trim.set_enabled(podcast.trim_silence.unwrap_or(global_trim));
+        if !keep_rate {
+            self.rate = podcast.rate.unwrap_or(global_rate);
+        }
+        Ok(())
+    }
+
+    async fn apply_podcast_settings(&mut self, subscription_id: Option<i64>) -> anyhow::Result<bool> {
+        let Some(id) = self.current_id() else { return Ok(true) };
+        let podcast = store::podcast_playback(&*self.db.lock().await, id)?;
+        match subscription_id {
+            None => {
+                let global_trim = store::trim_silence(&*self.db.lock().await);
+                self.pipeline.trim.set_enabled(podcast.trim_silence.unwrap_or(global_trim));
+            }
+            Some(changed) if podcast.subscription_id == Some(changed) => {
+                let previous = self.rate;
+                self.rate_chosen_for = None;
+                self.apply_episode_settings(id, false).await?;
+                let rate = self.rate;
+                if rate != previous {
+                    self.apply_rate(rate)?;
+                }
+            }
+            Some(_) => {}
+        }
+        Ok(true)
+    }
+
+    fn apply_rate(&mut self, rate: f64) -> anyhow::Result<bool> {
+        self.rate = rate;
         match self.phase {
             Phase::Ready { .. } => {
                 self.refresh_position();
@@ -774,6 +881,12 @@ impl Engine {
     }
 
     async fn on_eos(&mut self) {
+        if self.is_preview() {
+            tracing::info!("preview finished");
+            self.clear_loaded();
+            self.publish();
+            return;
+        }
         let Some(id) = self.current_id() else { return };
         tracing::info!("episode {id} finished");
         let finished_at = self.duration_ms.unwrap_or(self.position_ms);
@@ -799,6 +912,12 @@ impl Engine {
 
     async fn on_error(&mut self, message: String, file_problem: bool) {
         tracing::error!("pipeline error: {message}");
+        if self.is_preview() {
+            self.clear_loaded();
+            let _ = self.events.send(Event::PreviewFailed { message });
+            self.publish();
+            return;
+        }
         let Some(id) = self.current_id() else { return };
         match self.phase {
             Phase::Idle => {}
@@ -977,6 +1096,7 @@ impl Engine {
             sleep_at_episode_end: self.sleep_at_episode_end,
             loading: matches!(self.phase, Phase::Loading { .. }) || self.seek_in_flight.is_some(),
             chapters: self.current.as_ref().map(|c| c.chapters.clone()).unwrap_or_default(),
+            preview: self.current.as_ref().is_some_and(|c| c.preview),
         });
     }
 }

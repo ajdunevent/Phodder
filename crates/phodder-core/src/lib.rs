@@ -2,6 +2,7 @@
 //! rules, the group-priority queue, retention and sync data, so they can be
 //! unit-tested without a display or audio pipeline.
 
+pub mod backup;
 pub mod chapters;
 pub mod db;
 pub mod feed;

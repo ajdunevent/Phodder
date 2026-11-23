@@ -1,5 +1,7 @@
 use super::*;
 
+pub(super) const PLAYBACK_RATES: [f64; 11] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0];
+
 /// Check-for-new-episodes choices, in minutes.
 const REFRESH_INTERVALS_MINUTES: [i64; 8] = [15, 30, 60, 120, 240, 480, 720, 1440];
 
@@ -34,7 +36,8 @@ fn refresh_interval_label(minutes: i64) -> String {
 
 /// Global defaults: updates and downloads, sync, playback, the storage
 /// defaults for podcasts without their own, podcast directories, and
-/// running in the background. Every change is saved at once.
+/// running in the background. Every change is saved at once. `at_sync`
+/// scrolls to the Sync group.
 pub(super) fn show_settings_dialog(
     parent: &libadwaita::ApplicationWindow,
     db_path: std::path::PathBuf,
@@ -42,6 +45,7 @@ pub(super) fn show_settings_dialog(
     skip_backward_button: &gtk4::Button,
     skip_forward_button: &gtk4::Button,
     command_tx: &UnboundedSender<UiCommand>,
+    at_sync: bool,
 ) {
     let conn = match phodder_core::open_connection(&db_path) {
         Ok(c) => c,
@@ -140,7 +144,21 @@ pub(super) fn show_settings_dialog(
     updates.add(&download_metered_row);
     updates.add(&backfill_row);
     page.add(&updates);
-    page.add(&build_sync_group(parent, &db_path, command_tx, &toast_overlay));
+    let sync_group = build_sync_group(parent, &db_path, command_tx, &toast_overlay);
+    page.add(&sync_group);
+    if at_sync {
+        // Positions are only known once the dialog has been laid out.
+        sync_group.connect_map(|group| {
+            let group = group.clone();
+            gtk4::glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+                let Some(scrolled) = group.ancestor(gtk4::ScrolledWindow::static_type()).and_downcast::<gtk4::ScrolledWindow>() else { return };
+                let Some(child) = scrolled.child() else { return };
+                if let Some(point) = group.compute_point(&child, &gtk4::graphene::Point::new(0.0, 0.0)) {
+                    scrolled.vadjustment().set_value(f64::from(point.y()) - 12.0);
+                }
+            });
+        });
+    }
 
     // Playback
     let playback = libadwaita::PreferencesGroup::builder().title(gettext("Playback")).build();
@@ -174,6 +192,20 @@ pub(super) fn show_settings_dialog(
         played_threshold_spin.connect_value_changed(move |spin| save("default_played_threshold_seconds", Some(spin.value().to_string())));
     }
     playback.add(&played_threshold_row);
+    let trim_row = libadwaita::SwitchRow::builder()
+        .title(gettext("Trim silence"))
+        .subtitle(gettext("Shortens long pauses. Podcasts can set their own."))
+        .active(get_flag(phodder_core::settings::TRIM_SILENCE, false))
+        .build();
+    {
+        let save = save.clone();
+        let command_tx = command_tx.clone();
+        trim_row.connect_active_notify(move |row| {
+            save(phodder_core::settings::TRIM_SILENCE, flag(row.is_active()));
+            let _ = command_tx.send(UiCommand::ApplyPodcastPlayback(None));
+        });
+    }
+    playback.add(&trim_row);
     page.add(&playback);
 
     // Storage defaults

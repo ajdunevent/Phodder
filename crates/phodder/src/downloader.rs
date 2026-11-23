@@ -93,6 +93,13 @@ fn episode_qualifies_for_auto_download(
 static ACTIVE_DOWNLOADS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<i64, tokio::task::AbortHandle>>> =
     std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
 
+pub(crate) fn cancel_all_downloads() {
+    let ids: Vec<i64> = ACTIVE_DOWNLOADS.lock().expect("ACTIVE_DOWNLOADS mutex shouldn't be poisoned").keys().copied().collect();
+    for id in ids {
+        cancel_download(id);
+    }
+}
+
 /// No-op when nothing is downloading. Must run before the database delete;
 /// see ACTIVE_DOWNLOADS.
 pub(crate) fn cancel_download(episode_id: i64) {
@@ -1034,7 +1041,8 @@ pub(crate) async fn download_queued_episodes(
     let queued = {
         let conn = db.lock().await;
         let mut stmt = conn.prepare(
-            "SELECT id, audio_url, artwork_url, subscription_id, publish_date, title, show_notes_text, manually_downloaded, played
+            "SELECT id, audio_url, artwork_url, subscription_id, publish_date, title, show_notes_text,
+                    manually_downloaded OR group_queue_position IS NOT NULL, played
              FROM episodes WHERE download_status = 'queued'",
         )?;
         let rows: Vec<(i64, String, Option<String>, i64, String, String, Option<String>, bool, bool)> = stmt
@@ -1054,9 +1062,11 @@ pub(crate) async fn download_queued_episodes(
     let mut any_disqualified = false;
     {
         let conn = db.lock().await;
-        for (episode_id, audio_url, artwork_url, subscription_id, publish_date_str, title, show_notes_text, manually_downloaded, played) in queued {
-            if manually_downloaded || crate::redownload::is_pending(episode_id) {
-                tracing::debug!("episode {episode_id}: downloading without re-checking its podcast's rules (manual download or re-download)");
+        // An episode already in the play queue (restored from a backup
+        // without its file) was wanted, like a manual download.
+        for (episode_id, audio_url, artwork_url, subscription_id, publish_date_str, title, show_notes_text, wanted, played) in queued {
+            if wanted || crate::redownload::is_pending(episode_id) {
+                tracing::debug!("episode {episode_id}: downloading without re-checking its podcast's rules (manual, queued for play, or re-download)");
                 to_download.push((episode_id, audio_url, artwork_url));
                 continue;
             }

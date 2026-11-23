@@ -17,6 +17,9 @@
     <file alias="skip-backwards-30-symbolic.svg">icons/skip-backwards-30-symbolic.svg</file>
     <file alias="skip-forward-10-symbolic.svg">icons/skip-forward-10-symbolic.svg</file>
     <file alias="skip-forward-30-symbolic.svg">icons/skip-forward-30-symbolic.svg</file>
+    <!-- Adwaita's view-refresh under Phodder's own name, so no theme swaps
+         in a version the spin's offset doesn't fit. -->
+    <file alias="phodder-refresh-symbolic.svg">icons/phodder-refresh-symbolic.svg</file>
   </gresource>
   <!-- From adwaita-icon-theme (LGPL-3 or CC-BY-SA-3.0; see icons/ADWAITA.md),
        so icons don't go missing under other themes or newer Adwaita
@@ -54,5 +57,6 @@
     <file alias="user-trash-symbolic.svg">icons/user-trash-symbolic.svg</file>
     <file alias="view-list-symbolic.svg">icons/view-list-symbolic.svg</file>
     <file alias="view-refresh-symbolic.svg">icons/view-refresh-symbolic.svg</file>
+    <file alias="selection-mode-symbolic.svg">icons/selection-mode-symbolic.svg</file>
   </gresource>
 </gresources>

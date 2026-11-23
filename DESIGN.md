@@ -159,7 +159,7 @@ choices worth remembering:
   - Library: Retry (failed) → Delete (downloaded); pending rows get none.
   - A podcast's Episodes tab: Download → Retry → "+" → Mark Played →
     Delete.
-  - History: Delete (file exists) → Clear (two taps).
+  - History: Delete (file exists) → Clear.
   Tapping a row opens episode details, which offer every action that
   applies (one list, filtered by where it was opened).
 - Player: `AdwBottomSheet`. The mini player is always visible above the
@@ -226,7 +226,17 @@ choices worth remembering:
   metainfo (name, developer, license, website, issue tracker, release
   notes), plus Donate and Source Code links, which libadwaita doesn't read
   from metainfo.
-- Not built: selection mode and bulk actions.
+- Selection mode on Queue, Library, History and a podcast's Episodes tab.
+  Entered by long press (touch only), right click, the header Select button
+  (Queue, Library, History) or the Select button above a podcast's episode
+  list, since that dialog's header holds its tabs; there a pressed Select
+  button in the selection bar leaves the mode. The bar shows the count (with
+  Select All/None) and every action, dimming any that doesn't apply to every
+  selected episode. Opposite pairs (Add/Remove from Queue, Mark
+  Played/Unplayed) share a button so the bar fits a phone. Actions run on
+  one tap. An action ends the mode. History has no Delete All or Clear All; Select All covers both.
+  Select All only touches rows the current filter shows. Switching tabs
+  leaves the mode.
 - **Swipe actions dropped** (no stock libadwaita widget for it).
 - Skip intervals (forward/backward) are independently configurable and
   apply to the buttons, shortcuts and MPRIS.
@@ -349,7 +359,7 @@ choices worth remembering:
   "Nextcloud"), how many feeds failed (None for the whole sync, such as a
   missing password), and why. The problem bar leads with it ("Nextcloud
   sync failed for all feeds") until a sync succeeds, and its Details row
-  opens Settings. Failures used to reach only the log, so a missing keyring
+  opens Settings scrolled to Sync. Failures used to reach only the log, so a missing keyring
   password went unnoticed.
 - **GNOME Online Accounts: dropped.** Under Flatpak it needs a permission
   that exposes every online account.
@@ -389,14 +399,19 @@ choices worth remembering:
   URL an episode's path is cleared so it shows its show's artwork. A feed
   refresh re-caches a show's artwork, but an episode's is only cached when
   the episode is added.
-- The Refresh button's icon turns while any refresh runs (as Owlet's
-  does), from a `Refreshing` update the service sends when the first
+- The Refresh button's icon (Adwaita's view-refresh, bundled as
+  `phodder-refresh-symbolic` so no theme replaces it) turns about its
+  loop's centre, (7.5, 8.5), while any refresh runs, as Owlet's does, from a `Refreshing` update the service sends when the first
   overlapping refresh starts and the last one ends; new windows get it in
   their catch-up.
 - Dedup by normalized feed URL. Results already subscribed to show a
   checkmark and open the existing podcast.
-- Not built: preview-playing an episode before subscribing (the planned
-  `PlayAdHoc` command).
+- Preview playback: each episode in a directory preview has Play/Pause.
+  The engine streams the audio URL (allowed on metered connections) as an
+  episode that isn't in the database: `current_id()` is None for it, so
+  nothing is saved (position, History, sync milestones). The episode it
+  replaced has its position saved; when the preview ends nothing is
+  loaded, and Play resumes that episode (`last_in_progress`).
 
 ## 9. OPML
 
@@ -410,11 +425,17 @@ choices worth remembering:
   never blocks the import UI waiting on N feed fetches.
 - Export is plain/standard OPML only (no custom attributes for
   app-specific data) for maximum portability.
-- Planned, not built: **full app-state backup/restore**, separate from OPML (JSON: groups,
-  subscriptions incl. filters/retention/notify settings, sync account
-  *references* — never credentials) — mirrors AntennaPod's split of a
-  config export vs. a feeds export. Restoring never restores downloaded
-  audio files themselves (those re-download).
+- **Back Up Library / Restore Library** (main menu), separate from OPML:
+  every table as JSON rows (`phodder-core/src/backup.rs`), without audio,
+  cached artwork, local paths or passwords (passwords are in the keyring;
+  a sync account restored elsewhere asks again). Restore replaces
+  everything after a warning, in one transaction, matching columns by
+  name so older backups restore into newer schemas. A download survives
+  when the restored episode (feed URL + GUID) had its file here; other
+  queued episodes download again, the rest stay not downloaded, and files
+  outside the restored library are deleted. The window copies the chosen
+  file into the data directory for the service, which stops playback and
+  downloads first.
 
 ## 10. Podcasting 2.0 / Value4Value
 
@@ -506,8 +527,13 @@ choices worth remembering:
   *entire* call lifetime (ringing through answered/active), single
   resume only on true termination (never merely "ringing stopped because
   answered"). Detected via ModemManager's `Modem.Voice` interface (same
-  backend GNOME Calls uses). Built (`call_watch.rs`); not yet tested on
-  real hardware.
+  backend GNOME Calls uses), in `call_watch.rs`. A call counts as ended
+  when its state becomes Terminated or when it's deleted with no other
+  call in progress: a missed call can be deleted without Terminated ever
+  arriving, which left playback paused after a call went to voicemail.
+  Every voice-capable modem is watched, including ones ModemManager adds
+  later (ObjectManager InterfacesAdded); a call ending on one modem
+  doesn't resume while another has a call.
 - Pause when another MPRIS peer starts playing: `mpris_peer_watch.rs`
   enumerates `org.mpris.MediaPlayer2.*` peers, subscribes to
   `PlaybackStatus`, pauses self on a peer's transition to `Playing`.
@@ -515,6 +541,16 @@ choices worth remembering:
   episode: one reused across episodes with different sample rates or
   channel counts crashed the app at speeds other than 1x (GStreamer
   1.26, `episodes_in_different_formats_play_at_double_speed`).
+- Speed: the player's speed is global. A podcast can set its own, used
+  for its episodes; changing the speed while one plays sets the player's
+  speed and lasts for that episode only (`rate_chosen_for`), never
+  changing the podcast's.
+- Trim Silence (Settings, overridable per podcast: same as player, on,
+  off): a pad probe ahead of scaletempo (`trim.rs`) drops audio quieter
+  than about -30 dBFS after the first 250 ms of each quiet run and moves
+  later buffers earlier. Reported positions are on that shortened
+  timeline, so each is mapped back through the offsets in force; seeks
+  and flushes start the offset over. No plugins-bad element is needed.
 
 ## 11a. Diagnostics
 
@@ -592,16 +628,12 @@ choices worth remembering:
 
 ## 14. Explicitly out of scope / deferred
 
-- Per-subscription playback speed (not yet, maybe later)
 - Streaming (per-minute) V4V sats, boostagram display
 - Cancelling downloads from the UI (downloads are quick; not offered)
 - Emergency-broadcast-style group interrupt behavior (dropped entirely)
 - Swipe-to-delete/dismiss episode rows (dropped; no stock libadwaita widget)
 - Systemd-based process supervision (architecturally rejected)
 
-**Not built yet**: full backup/restore (§9), selection mode and bulk
-actions (§3), Value4Value boosts (§10), preview playback before
-subscribing (§8), per-podcast playback speed and silence trimming,
-watching more than the first modem for calls, testing with Orca, actual
+**Not built yet**: Value4Value boosts (§10), testing with Orca, actual
 translations.
 

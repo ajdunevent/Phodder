@@ -797,3 +797,148 @@ async fn output_failure_while_loading_retries_the_episode() {
 
     wait_for(&player, "A playing after the retry", 10, playing(a)).await;
 }
+
+/// Tone, then `silence` seconds of digital silence, then tone again.
+fn encode_mp3_with_silence(path: &Path, tone: u32, silence: u32) {
+    gst::init().unwrap();
+    let caps = "audio/x-raw,format=S16LE,rate=44100,channels=2,layout=interleaved";
+    let buffers = |s: u32| s * 44_100 / 1024;
+    let pipeline = gst::parse::launch(&format!(
+        "concat name=c ! audioconvert ! lamemp3enc target=bitrate bitrate=64 cbr=true ! filesink location=\"{}\" \
+         audiotestsrc num-buffers={t} samplesperbuffer=1024 ! {caps} ! c. \
+         audiotestsrc wave=silence num-buffers={q} samplesperbuffer=1024 ! {caps} ! c. \
+         audiotestsrc num-buffers={t} samplesperbuffer=1024 ! {caps} ! c.",
+        path.display(),
+        t = buffers(tone),
+        q = buffers(silence),
+    ))
+    .unwrap();
+    pipeline.set_state(gst::State::Playing).unwrap();
+    let bus = pipeline.bus().unwrap();
+    let msg = bus.timed_pop_filtered(gst::ClockTime::from_seconds(30), &[gst::MessageType::Eos, gst::MessageType::Error]).unwrap();
+    assert_eq!(msg.type_(), gst::MessageType::Eos, "encoding failed: {msg:?}");
+    pipeline.set_state(gst::State::Null).unwrap();
+}
+
+#[tokio::test]
+async fn a_podcast_speed_is_used_and_a_change_lasts_for_that_episode() {
+    let mut f = Fixture::new();
+    let own_speed = {
+        let db = f.db.lock().await;
+        db.execute("INSERT INTO subscriptions (feed_url, title, group_id, playback_rate) VALUES ('https://example.com/fast', 'Fast', 1, 2.0)", [])
+            .unwrap();
+        db.last_insert_rowid()
+    };
+    let default_sub = f.sub_id;
+    f.sub_id = own_speed;
+    let a = f.episode("A", &f.audio_file("a.mp3", 20), true).await;
+    f.sub_id = default_sub;
+    let b = f.episode("B", &f.audio_file("b.mp3", 20), true).await;
+    f.sub_id = own_speed;
+    let c = f.episode("C", &f.audio_file("c.mp3", 20), true).await;
+    let player = f.player();
+
+    player.play().await.unwrap();
+    assert_eq!(wait_for(&player, "A playing", 5, playing(a)).await.rate, 2.0, "A uses its podcast's speed");
+    player.set_rate(1.5).await.unwrap();
+    assert_eq!(settle(&player).await.rate, 1.5, "a change applies to A");
+    let podcast_rate: f64 =
+        f.db.lock().await.query_row("SELECT playback_rate FROM subscriptions WHERE id = ?1", [own_speed], |r| r.get(0)).unwrap();
+    assert_eq!(podcast_rate, 2.0, "the podcast's speed is left alone");
+
+    player.next().await.unwrap();
+    assert_eq!(wait_for(&player, "B playing", 5, playing(b)).await.rate, 1.5, "B uses the player's new speed");
+    player.play_episode(c).await.unwrap();
+    assert_eq!(wait_for(&player, "C playing", 5, playing(c)).await.rate, 2.0, "C uses its podcast's speed again");
+}
+
+#[tokio::test]
+async fn trimmed_silence_is_skipped_and_positions_stay_on_the_file() {
+    let mut f = Fixture::new();
+    let path = f.dir.path().join("gap.mp3");
+    encode_mp3_with_silence(&path, 2, 4);
+    let a = f.episode("A", &path, true).await;
+    f.set(phodder_core::settings::TRIM_SILENCE, "1").await;
+    let player = f.player();
+
+    player.play().await.unwrap();
+    wait_for(&player, "A playing", 5, playing(a)).await;
+    tokio::time::sleep(Duration::from_millis(3000)).await;
+    player.pause().await.unwrap();
+    let saved = f.row(a).await.1 as u64;
+    // 3 s of listening covers the 2 s tone, a quarter second of the gap,
+    // and a second of the tone after it: about 6.25 s into the file.
+    assert!((5_500..=7_000).contains(&saved), "position after 3 s with the gap trimmed: {saved}");
+
+    player.seek_to(1_000).await.unwrap();
+    let settled = settle(&player).await;
+    assert!(near(settled.position_ms, 1_000, 300), "a seek lands on the file's timeline: {}", settled.position_ms);
+}
+
+#[tokio::test]
+async fn silence_is_kept_when_trimming_is_off() {
+    let mut f = Fixture::new();
+    let path = f.dir.path().join("gap.mp3");
+    encode_mp3_with_silence(&path, 2, 4);
+    let a = f.episode("A", &path, true).await;
+    let player = f.player();
+
+    player.play().await.unwrap();
+    wait_for(&player, "A playing", 5, playing(a)).await;
+    tokio::time::sleep(Duration::from_millis(3000)).await;
+    player.pause().await.unwrap();
+    let saved = f.row(a).await.1 as u64;
+    assert!((2_500..=3_600).contains(&saved), "position after 3 s untrimmed: {saved}");
+}
+
+#[tokio::test]
+async fn a_preview_plays_without_touching_the_library() {
+    let mut f = Fixture::new();
+    let a = f.episode("A", &f.audio_file("a.mp3", 20), true).await;
+    let preview_file = f.audio_file("preview.mp3", 2);
+    let player = f.player();
+
+    player.play().await.unwrap();
+    wait_for(&player, "A playing", 5, playing(a)).await;
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+
+    let uri = gst::glib::filename_to_uri(&preview_file, None).unwrap().to_string();
+    let info = phodder_playback::EpisodeInfo { title: "Preview".into(), ..Default::default() };
+    player.play_preview(uri, info).await.unwrap();
+    let snap = wait_for(&player, "the preview playing", 5, |s| s.preview && s.status == Status::Playing && !s.loading).await;
+    assert_eq!(snap.episode.unwrap().title, "Preview");
+    let saved = f.row(a).await.1;
+    assert!(saved >= 1000, "A's position was saved when the preview started: {saved}");
+
+    wait_for(&player, "the preview to end", 6, |s| s.status == Status::Stopped && !s.preview).await;
+    let history = phodder_core::subscriptions::list_history_episodes(&*f.db.lock().await).unwrap();
+    assert!(history.is_empty(), "a preview isn't History");
+    assert_eq!(f.row(a).await.1, saved, "A's position is left alone");
+
+    player.play().await.unwrap();
+    let resumed = wait_for(&player, "A again", 5, playing(a)).await;
+    assert!(near(resumed.position_ms, saved as u64, 1500), "play resumes A where it was: {}", resumed.position_ms);
+}
+
+#[tokio::test]
+async fn a_preview_that_cant_play_is_reported() {
+    gst::init().unwrap();
+    let f = Fixture::new();
+    let player = f.player();
+    let mut events = player.subscribe();
+    let missing = gst::glib::filename_to_uri(f.dir.path().join("nothing.mp3"), None).unwrap().to_string();
+    // Fails at once for a local file; a stream fails later, with an event.
+    if player.play_preview(missing, phodder_playback::EpisodeInfo::default()).await.is_ok() {
+        let failed = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                if let Ok(Event::PreviewFailed { .. }) = events.recv().await {
+                    return;
+                }
+            }
+        })
+        .await;
+        assert!(failed.is_ok(), "no PreviewFailed event");
+    }
+    let snap = wait_for(&player, "nothing loaded", 5, |s| s.episode.is_none()).await;
+    assert!(!snap.preview);
+}

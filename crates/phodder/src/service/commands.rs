@@ -24,6 +24,8 @@ pub enum ServiceCommand {
     SkipForward,
     SkipBackward,
     SetPlaybackRate(f64),
+    ApplyPodcastPlayback(Option<i64>),
+    PlayPreview { url: String, title: String, podcast_title: String, artwork_local_path: Option<String> },
     /// Milliseconds; `None` cancels the timer.
     SetSleepTimer(Option<u64>),
     SleepAtEpisodeEnd,
@@ -37,6 +39,9 @@ pub enum ServiceCommand {
     ReevaluateSubscriptionRetention(i64),
     ReevaluateQueuedEpisodesAgainstFilters(i64),
     NetworkChanged(bool),
+    /// Replaces the library with a backup the window copied to this path,
+    /// then deletes the copy.
+    RestoreBackup(String),
     /// Ends the service whatever Run in Background says.
     Quit,
 }
@@ -73,6 +78,16 @@ pub fn handle(
         C::SkipForward => core.player.send_skip_forward(),
         C::SkipBackward => core.player.send_skip_backward(),
         C::SetPlaybackRate(rate) => core.player.send_set_rate(rate),
+        C::ApplyPodcastPlayback(subscription_id) => core.player.send_apply_podcast_settings(subscription_id),
+        C::PlayPreview { url, title, podcast_title, artwork_local_path } => {
+            let info = phodder_playback::EpisodeInfo { id: 0, title, podcast_title, artwork_url: None, artwork_local_path };
+            tokio::spawn(async move {
+                if let Err(e) = core.player.play_preview(url, info).await {
+                    tracing::warn!("preview could not be played: {e:#}");
+                    let _ = core.ui_tx.send(UiUpdate::Notice(crate::i18n::gettext("Couldn't play the preview"))).await;
+                }
+            });
+        }
         C::SetSleepTimer(millis) => core.player.send_set_sleep_timer(millis.map(std::time::Duration::from_millis)),
         C::SleepAtEpisodeEnd => core.player.send_sleep_at_episode_end(),
         C::CancelDownload(episode_id) => crate::downloader::cancel_download(episode_id),
@@ -100,6 +115,23 @@ pub fn handle(
         }
         // Handled by the service's command loop.
         C::Quit => {}
+        C::RestoreBackup(path) => {
+            tokio::spawn(async move {
+                let result = restore_backup(&core, std::path::Path::new(&path)).await;
+                let _ = tokio::fs::remove_file(&path).await;
+                match result {
+                    Ok(()) => {
+                        send_reply(reply, Ok(()));
+                        let _ = core.ui_tx.send(UiUpdate::DataChanged).await;
+                        crate::downloader::refresh_and_download_now(&core.db, &download_tx, &core.ui_tx, true).await;
+                    }
+                    Err(e) => {
+                        tracing::error!("restore failed: {e:#}");
+                        send_reply(reply, Err(format!("{e:#}")));
+                    }
+                }
+            });
+        }
         C::SetPlayed { episode_id, played } => {
             if played {
                 core.player.send_stop_if_current(vec![episode_id]);
@@ -267,4 +299,25 @@ fn dequeue_newly_blocked(conn: &rusqlite::Connection, subscription_id: i64) -> b
         }
     }
     any_removed
+}
+
+async fn restore_backup(core: &PlayerCore, path: &std::path::Path) -> anyhow::Result<()> {
+    let json = tokio::fs::read_to_string(path).await?;
+    phodder_core::backup::inspect(&json)?;
+    core.player.stop().await?;
+    crate::downloader::cancel_all_downloads();
+    let report = phodder_core::backup::restore(&*core.db.lock().await, &json)?;
+    tracing::info!(
+        "restored {} podcasts and {} episodes; kept {} downloads, deleting {} files",
+        report.podcasts,
+        report.episodes,
+        report.downloads_kept,
+        report.files_to_delete.len()
+    );
+    for file in report.files_to_delete {
+        if let Err(e) = tokio::fs::remove_file(&file).await {
+            tracing::warn!("couldn't delete {} after restoring: {e}", file.display());
+        }
+    }
+    Ok(())
 }

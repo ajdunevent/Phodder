@@ -218,6 +218,8 @@ pub(super) fn build_back_catalog_episode_list(
 
     const PAGE_SIZE: usize = 50;
     const BATCH_SIZE: usize = 20;
+    let selection = selection::scope(&format!("podcast:{subscription_id}"));
+    selection.begin_page(&db_path, &command_tx, &toast_overlay);
     let total_pages = (parsed_episodes.len() + PAGE_SIZE - 1) / PAGE_SIZE;
     let page_start = page_index * PAGE_SIZE;
     let page_end = (page_start + PAGE_SIZE).min(parsed_episodes.len());
@@ -270,6 +272,7 @@ pub(super) fn build_back_catalog_episode_list(
         let db_path = db_path.clone();
         let command_tx = command_tx.clone();
         let thumbnails = thumbnails.clone();
+        let selection = selection.clone();
         // Held strongly here so the page's state lives as long as its rows.
         let page_state = (context.clone(), handles.clone());
         list_box.connect_destroy(move |_| {
@@ -296,6 +299,8 @@ pub(super) fn build_back_catalog_episode_list(
                     // it once fetched.
                     let thumbnail = load_thumbnail_image(&[subscription_artwork_local_path.as_deref()], "audio-x-generic-symbolic", 48);
                     row.add_prefix(&thumbnail);
+                    let item = selection::Item::Feed { subscription_id, episode: episode.clone() };
+                    selection.attach_row(&row, item.clone());
                     let action_slot = gtk4::Box::builder().valign(gtk4::Align::Center).build();
                     row.add_suffix(&action_slot);
                     {
@@ -303,7 +308,11 @@ pub(super) fn build_back_catalog_episode_list(
                         let episode = episode.clone();
                         let db_path = db_path.clone();
                         let artwork = subscription_artwork_local_path.clone();
+                        let selection = selection.clone();
                         row.connect_activated(move |_| {
+                            if selection.handle_activate(&item) {
+                                return;
+                            }
                             match back_catalog_statuses_now(&db_path, subscription_id).get(&episode.guid).map(|e| e.episode_id) {
                                 Some(id) => open_episode_details(id),
                                 None => open_episode_preview(
@@ -417,7 +426,24 @@ pub(super) fn build_back_catalog_episode_list(
         }
     }
 
-    outer.upcast()
+    // The podcast dialog's header holds its tabs, so Select lives here.
+    let count = parsed_episodes.len();
+    let select_bar = gtk4::Box::builder().spacing(6).margin_start(18).margin_end(6).margin_top(6).margin_bottom(6).build();
+    select_bar.append(
+        &gtk4::Label::builder()
+            .label(ngettext_f("{n} episode", "{n} episodes", count as u32, &[("n", &count.to_string())]))
+            .halign(gtk4::Align::Start)
+            .hexpand(true)
+            .css_classes(["dim-label"])
+            .build(),
+    );
+    let select_button = gtk4::Button::builder().icon_name("selection-mode-symbolic").tooltip_text(gettext("Select Episodes")).css_classes(["flat"]).build();
+    {
+        let selection = selection.clone();
+        select_button.connect_clicked(move |_| selection.set_active(true));
+    }
+    select_bar.append(&select_button);
+    selection.wrap(&outer, Some(select_bar.upcast_ref()), true).upcast()
 }
 
 /// Deletes a downloaded episode's file and resets it to 'none'. Mirrors
@@ -454,9 +480,12 @@ pub(super) fn build_library_page_from_data(
     command_tx: &UnboundedSender<UiCommand>,
     toast_overlay: &libadwaita::ToastOverlay,
 ) -> gtk4::Widget {
+    let selection = selection::scope("library");
     if episodes.is_empty() {
+        selection.set_active(false);
         return placeholder_page(&gettext("Library"), "library-symbolic").upcast();
     }
+    selection.begin_page(db_path, command_tx, toast_overlay);
 
     let list_box = gtk4::ListBox::builder()
         .selection_mode(gtk4::SelectionMode::None)
@@ -493,7 +522,12 @@ pub(super) fn build_library_page_from_data(
         episode_row.add_css_class(&format!("{LIBRARY_STATUS_CLASS_PREFIX}{}", episode.download_status));
         {
             let episode_id = episode.id;
-            episode_row.connect_activated(move |_| open_episode_details(episode_id));
+            let selection = selection.clone();
+            episode_row.connect_activated(move |_| {
+                if !selection.handle_activate(&selection::Item::Episode(episode_id)) {
+                    open_episode_details(episode_id);
+                }
+            });
         }
         // Episode artwork, falling back to the show's, including when a file
         // fails to load.
@@ -503,6 +537,7 @@ pub(super) fn build_library_page_from_data(
             64,
         );
         episode_row.add_prefix(&thumbnail);
+        selection.attach_row(&episode_row, selection::Item::Episode(episode.id));
 
         // One action: Retry for a failed download, Delete for a downloaded
         // one. Pending downloads get none.
@@ -632,11 +667,11 @@ pub(super) fn build_library_page_from_data(
         apply_filter(&name);
     });
 
-    let page = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).vexpand(true).build();
-    page.append(&filter_group);
-    page.append(&scroller);
-    page.append(&empty_page);
-    page.upcast()
+    let content = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).vexpand(true).build();
+    content.append(&filter_group);
+    content.append(&scroller);
+    content.append(&empty_page);
+    selection.wrap(&content, None, false).upcast()
 }
 
 const LIBRARY_STATUS_CLASS_PREFIX: &str = "library-status-";

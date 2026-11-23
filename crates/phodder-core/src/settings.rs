@@ -2,6 +2,9 @@
 
 use rusqlite::{params, Connection, OptionalExtension};
 
+/// "1" trims silence for podcasts that don't set their own; off when unset.
+pub const TRIM_SILENCE: &str = "trim_silence";
+
 pub fn get_setting(conn: &Connection, key: &str) -> Option<String> {
     conn.query_row("SELECT value FROM settings WHERE key = ?1", params![key], |row| row.get(0))
         .optional()

@@ -341,13 +341,14 @@ fn show_podcast_preview(podcast: &crate::discovery::DiscoveredPodcast, context: 
         let preview = preview.clone();
         let add_button = add_button.clone();
         let podcast_title = podcast.title.clone();
+        let command_tx = context.command_tx.clone();
         gtk4::glib::spawn_future_local(async move {
             match reply_rx.await.unwrap_or_else(|_| Err(gettext("the backend didn't respond"))) {
                 Ok(fetched) => {
                     set_podcast_description(&description_label, fetched.parsed.description.as_deref());
                     let mut episodes = fetched.parsed.episodes.clone();
                     episodes.sort_by(|a, b| b.publish_date.cmp(&a.publish_date));
-                    let episodes = std::rc::Rc::new(PreviewEpisodes { episodes, podcast_title, artwork: fetched.artwork_local_path.clone() });
+                    let episodes = std::rc::Rc::new(PreviewEpisodes { episodes, podcast_title, artwork: fetched.artwork_local_path.clone(), command_tx });
                     replace_slot_content(&episodes_slot, build_preview_episode_page(&episodes, &episodes_slot, 0));
                     preview.replace(Some(fetched));
                     add_button.set_sensitive(true);
@@ -403,6 +404,42 @@ struct PreviewEpisodes {
     episodes: Vec<phodder_core::feed::ParsedEpisode>,
     podcast_title: String,
     artwork: Option<String>,
+    command_tx: UnboundedSender<UiCommand>,
+}
+
+thread_local! {
+    /// The audio URL of the preview last started here, and whether the
+    /// player is playing it; drives the rows' Play/Pause buttons.
+    static PREVIEWING: std::cell::RefCell<(Option<String>, bool)> = const { std::cell::RefCell::new((None, false)) };
+    static PREVIEW_BUTTONS: std::cell::RefCell<Vec<(String, gtk4::glib::WeakRef<gtk4::Button>)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Called with every playback state. A preview ending or something else
+/// loading clears it.
+pub(super) fn set_preview_play_state(preview: bool, playing: bool) {
+    PREVIEWING.with(|p| {
+        let mut p = p.borrow_mut();
+        if !preview {
+            p.0 = None;
+        }
+        p.1 = playing;
+    });
+    update_preview_buttons();
+}
+
+fn update_preview_buttons() {
+    let (url, playing) = PREVIEWING.with(|p| p.borrow().clone());
+    PREVIEW_BUTTONS.with(|buttons| {
+        buttons.borrow_mut().retain(|(button_url, button)| {
+            let Some(button) = button.upgrade() else { return false };
+            let active = url.as_deref() == Some(button_url.as_str()) && playing;
+            set_button_icon(&button, if active { "media-playback-pause-symbolic" } else { "media-playback-start-symbolic" });
+            let label = if active { gettext("Pause Preview") } else { gettext("Play Preview") };
+            button.set_tooltip_text(Some(&label));
+            set_accessible_label(&button, &label);
+            true
+        });
+    });
 }
 
 /// One 50-episode page of the preview's Episodes tab: like a subscription's,
@@ -435,6 +472,28 @@ fn build_preview_episode_page(episodes: &std::rc::Rc<PreviewEpisodes>, slot: &gt
             .subtitle_lines(1)
             .build();
         row.add_prefix(&load_thumbnail_image(&[episodes.artwork.as_deref()], "audio-x-generic-symbolic", 48));
+        let play = gtk4::Button::builder().icon_name("media-playback-start-symbolic").css_classes(["flat"]).valign(gtk4::Align::Center).build();
+        row.add_suffix(&play);
+        PREVIEW_BUTTONS.with(|b| b.borrow_mut().push((episode.audio_url.clone(), play.downgrade())));
+        {
+            let episode = episode.clone();
+            let episodes = episodes.clone();
+            play.connect_clicked(move |_| {
+                let current = PREVIEWING.with(|p| p.borrow().0.as_deref() == Some(episode.audio_url.as_str()));
+                let command = if current {
+                    UiCommand::PlayPause
+                } else {
+                    PREVIEWING.with(|p| *p.borrow_mut() = (Some(episode.audio_url.clone()), true));
+                    UiCommand::PlayPreview {
+                        url: episode.audio_url.clone(),
+                        title: episode.title.clone(),
+                        podcast_title: gettext_f("Preview · {podcast}", &[("podcast", &episodes.podcast_title)]),
+                        artwork_local_path: episodes.artwork.clone(),
+                    }
+                };
+                let _ = episodes.command_tx.send(command);
+            });
+        }
         {
             let episode = episode.clone();
             let episodes = episodes.clone();
@@ -451,6 +510,7 @@ fn build_preview_episode_page(episodes: &std::rc::Rc<PreviewEpisodes>, slot: &gt
         }
         list.append(&row);
     }
+    update_preview_buttons();
     let scrolled = gtk4::ScrolledWindow::builder().child(&list).vexpand(true).hscrollbar_policy(gtk4::PolicyType::Never).build();
     let page = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).build();
     page.append(&scrolled);

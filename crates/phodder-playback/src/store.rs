@@ -143,3 +143,33 @@ pub(crate) fn saved_rate(conn: &Connection) -> f64 {
 pub(crate) fn save_rate(conn: &Connection, rate: f64) -> rusqlite::Result<()> {
     phodder_core::settings::set_setting(conn, "playback_rate", &rate.to_string())
 }
+
+pub(crate) fn trim_silence(conn: &Connection) -> bool {
+    phodder_core::settings::get_setting(conn, phodder_core::settings::TRIM_SILENCE).is_some_and(|v| v != "0")
+}
+
+/// An episode's podcast and its own playback settings; None for each the
+/// podcast leaves to the player.
+pub(crate) struct PodcastPlayback {
+    pub subscription_id: Option<i64>,
+    pub rate: Option<f64>,
+    pub trim_silence: Option<bool>,
+}
+
+pub(crate) fn podcast_playback(conn: &Connection, episode_id: i64) -> rusqlite::Result<PodcastPlayback> {
+    let row = conn
+        .query_row(
+            "SELECT s.id, s.playback_rate, s.trim_silence FROM episodes e JOIN subscriptions s ON s.id = e.subscription_id WHERE e.id = ?1",
+            [episode_id],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, Option<f64>>(1)?, row.get::<_, Option<bool>>(2)?)),
+        )
+        .optional()?;
+    Ok(match row {
+        Some((id, rate, trim_silence)) => PodcastPlayback {
+            subscription_id: Some(id),
+            rate: rate.filter(|r| crate::RATE_RANGE.contains(r)),
+            trim_silence,
+        },
+        None => PodcastPlayback { subscription_id: None, rate: None, trim_silence: None },
+    })
+}

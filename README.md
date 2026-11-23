@@ -14,11 +14,13 @@ so it stays light on memory.
 - Delete after playing, and redownloading of missing or damaged files
 - Chapters, automatic chapter skipping and transcripts
 - Sleep timer, playback speed and adjustable skip intervals
+- Speed and silence trimming per podcast
+- Select several episodes to act on them together
 - Sync with Nextcloud GPodder Sync and gpodder.net
-- Podcast directories: Apple Podcasts, gpodder.net and Podcast Index
+- Podcast directories: Apple Podcasts, gpodder.net and Podcast Index, with episode previews
 - Pauses for calls, follows Bluetooth audio and resumes when it reconnects
 - Notifications for new episodes, per podcast
-- OPML import and export
+- OPML import and export, and full library backups
 
 ## Install
 

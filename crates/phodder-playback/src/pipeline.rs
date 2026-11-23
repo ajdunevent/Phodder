@@ -5,6 +5,7 @@ use gst::prelude::*;
 /// GStreamer side; the engine sequences them using bus messages.
 pub(crate) struct Pipeline {
     playbin: gst::Element,
+    pub(crate) trim: crate::trim::Trim,
 }
 
 /// The sound server sink autoaudiosink chose, readable from any thread.
@@ -76,7 +77,7 @@ impl Pipeline {
                 }
             });
         }
-        Ok(Self { playbin })
+        Ok(Self { playbin, trim: crate::trim::Trim::default() })
     }
 
     pub(crate) fn bus(&self) -> gst::Bus {
@@ -94,13 +95,21 @@ impl Pipeline {
         // filename_to_uri escapes characters such as '#' and '%' that
         // break a hand-built file:// URI.
         let uri = gst::glib::filename_to_uri(path, None)?;
+        self.open_uri(&uri)
+    }
+
+    pub(crate) fn open_uri(&self, uri: &str) -> anyhow::Result<gst::StateChangeSuccess> {
         // scaletempo keeps pitch constant at other rates. Reusing one across
         // episodes with different sample rates or channels crashes at rates other than 1.0.
-        match gst::ElementFactory::make("scaletempo").build() {
-            Ok(scaletempo) => self.playbin.set_property("audio-filter", &scaletempo),
-            Err(e) => tracing::warn!("scaletempo unavailable, pitch will shift with playback rate: {e}"),
+        let scaletempo = gst::ElementFactory::make("scaletempo").build();
+        if let Err(e) = &scaletempo {
+            tracing::warn!("scaletempo unavailable, pitch will shift with playback rate: {e}");
         }
-        self.playbin.set_property("uri", uri.as_str());
+        match self.trim.build_bin(scaletempo.ok()) {
+            Ok(filter) => self.playbin.set_property("audio-filter", &filter),
+            Err(e) => tracing::warn!("audio filter unavailable, silence won't be trimmed: {e}"),
+        }
+        self.playbin.set_property("uri", uri);
         Ok(self.playbin.set_state(gst::State::Paused)?)
     }
 
@@ -136,7 +145,7 @@ impl Pipeline {
     }
 
     pub(crate) fn position_ms(&self) -> Option<u64> {
-        self.playbin.query_position::<gst::ClockTime>().map(|t| t.mseconds())
+        self.playbin.query_position::<gst::ClockTime>().map(|t| self.trim.correct(t.mseconds()))
     }
 
     pub(crate) fn duration_ms(&self) -> Option<u64> {
