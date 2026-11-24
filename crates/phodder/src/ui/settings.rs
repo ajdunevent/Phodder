@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) const PLAYBACK_RATES: [f64; 11] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0];
+pub(super) const PLAYBACK_RATES: [f64; 15] = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0];
 
 /// Check-for-new-episodes choices, in minutes.
 const REFRESH_INTERVALS_MINUTES: [i64; 8] = [15, 30, 60, 120, 240, 480, 720, 1440];

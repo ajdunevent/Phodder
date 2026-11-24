@@ -555,3 +555,62 @@ pub(super) fn add_display_css(css: &str) {
         gtk4::style_context_add_provider_for_display(&display, &provider, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 }
+
+/// A speed slider from 0.5× to 4× in 0.25× steps: short ticks at .25 and
+/// .75, medium at .50, and labelled full ones at whole numbers.
+pub(super) fn speed_slider() -> gtk4::Scale {
+    let scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, PLAYBACK_RATES[0], PLAYBACK_RATES[PLAYBACK_RATES.len() - 1], 0.25);
+    scale.set_value(1.0);
+    scale.set_increments(0.25, 0.5);
+    scale.set_digits(2);
+    scale.set_draw_value(true);
+    scale.set_value_pos(gtk4::PositionType::Top);
+    scale.set_format_value_func(|_, value| format!("{value:.2}×"));
+    scale.add_css_class("phodder-speed");
+    set_accessible_label(&scale, &gettext("Playback speed"));
+    for rate in PLAYBACK_RATES {
+        let label = (rate.fract() == 0.0).then(|| format!("{rate:.0}×"));
+        scale.add_mark(rate, gtk4::PositionType::Bottom, label.as_deref());
+    }
+    thread_local! {
+        static STYLED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+    if !STYLED.with(|s| s.replace(true)) {
+        // Ticks follow the marks' order: whole numbers are 3rd, 7th, …;
+        // halves 1st, 5th, ….
+        let css = gtk4::CssProvider::new();
+        css.load_from_string(
+            ".phodder-speed marks.bottom mark indicator { min-height: 4px; }
+             .phodder-speed marks.bottom mark:nth-child(4n+1) indicator { min-height: 8px; }
+             .phodder-speed marks.bottom mark:nth-child(4n+3) indicator { min-height: 12px; }",
+        );
+        if let Some(display) = gtk4::gdk::Display::default() {
+            gtk4::style_context_add_provider_for_display(&display, &css, gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION);
+        }
+    }
+    scale.connect_change_value(|scale, _, value| {
+        scale.set_value((value * 4.0).round() / 4.0);
+        gtk4::glib::Propagation::Stop
+    });
+    scale
+}
+
+/// Calls `f` with the speed once the slider stops moving; each change is
+/// saved and applied with a seek.
+pub(super) fn connect_speed_settled(scale: &gtk4::Scale, f: impl Fn(f64) + 'static) {
+    let f = std::rc::Rc::new(f);
+    let pending: std::rc::Rc<std::cell::RefCell<Option<gtk4::glib::SourceId>>> = std::rc::Rc::default();
+    scale.connect_value_changed(move |scale| {
+        if let Some(source) = pending.borrow_mut().take() {
+            source.remove();
+        }
+        let rate = scale.value();
+        let f = f.clone();
+        let pending_done = pending.clone();
+        let source = gtk4::glib::timeout_add_local_once(std::time::Duration::from_millis(300), move || {
+            pending_done.borrow_mut().take();
+            f(rate);
+        });
+        *pending.borrow_mut() = Some(source);
+    });
+}

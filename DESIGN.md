@@ -545,6 +545,9 @@ choices worth remembering:
   episode: one reused across episodes with different sample rates or
   channel counts crashed the app at speeds other than 1x (GStreamer
   1.26, `episodes_in_different_formats_play_at_double_speed`).
+- Speed is chosen on a slider from 0.5× to 4× in 0.25× steps, in the
+  player and in a podcast's Settings ("Override speed"; off uses the player's). A drag sends only the value it
+  settles on, since each change is saved and applied with a seek.
 - Speed: the player's speed is global. A podcast can set its own, used
   for its episodes; changing the speed while one plays sets the player's
   speed and lasts for that episode only (`rate_chosen_for`), never

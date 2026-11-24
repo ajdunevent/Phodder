@@ -903,14 +903,32 @@ fn build_playback_section(
         .and_then(|conn| phodder_core::subscriptions::subscription_playback(&conn, subscription_id))
         .unwrap_or((None, None));
     let same = gettext("Same as player");
-    let mut speed_labels = vec![same.clone()];
-    speed_labels.extend(PLAYBACK_RATES.iter().map(|r| format!("{r:.2}×")));
-    let speed_row = libadwaita::ComboRow::builder()
-        .title(gettext("Speed"))
-        .model(&gtk4::StringList::new(&speed_labels.iter().map(String::as_str).collect::<Vec<_>>()))
-        .selected(rate.and_then(|r| PLAYBACK_RATES.iter().position(|c| (c - r).abs() < 0.001)).map_or(0, |i| i as u32 + 1))
+    // Off uses the player's speed; on reveals the podcast's own.
+    let speed_row = libadwaita::ExpanderRow::builder()
+        .title(gettext("Override speed"))
+        .show_enable_switch(true)
+        .enable_expansion(rate.is_some())
+        .expanded(rate.is_some())
         .build();
-    let trim_labels = [same, gettext("On"), gettext("Off")];
+    let speed_scale = speed_slider();
+    let player_rate = phodder_core::open_connection(db_path)
+        .ok()
+        .and_then(|conn| phodder_core::settings::get_setting(&conn, "playback_rate"))
+        .and_then(|v| v.parse::<f64>().ok())
+        .unwrap_or(1.0);
+    speed_scale.set_value(rate.unwrap_or(player_rate));
+    speed_scale.set_hexpand(true);
+    speed_scale.set_margin_start(12);
+    speed_scale.set_margin_end(12);
+    speed_scale.set_margin_top(6);
+    speed_scale.set_margin_bottom(6);
+    let slider_row = gtk4::ListBoxRow::builder().child(&speed_scale).activatable(false).build();
+    speed_row.add_row(&slider_row);
+    let describe = |row: &libadwaita::ExpanderRow, scale: &gtk4::Scale, same: &str| {
+        row.set_subtitle(&if row.enables_expansion() { format!("{:.2}×", scale.value()) } else { same.to_string() });
+    };
+    describe(&speed_row, &speed_scale, &same);
+    let trim_labels = [same.clone(), gettext("On"), gettext("Off")];
     let trim_row = libadwaita::ComboRow::builder()
         .title(gettext("Trim silence"))
         .model(&gtk4::StringList::new(&trim_labels.iter().map(String::as_str).collect::<Vec<_>>()))
@@ -925,9 +943,10 @@ fn build_playback_section(
         let command_tx = command_tx.clone();
         let toast_overlay = toast_overlay.clone();
         let speed_row = speed_row.clone();
+        let speed_scale = speed_scale.clone();
         let trim_row = trim_row.clone();
         std::rc::Rc::new(move || {
-            let rate = (speed_row.selected() as usize).checked_sub(1).and_then(|i| PLAYBACK_RATES.get(i).copied());
+            let rate = speed_row.enables_expansion().then(|| speed_scale.value());
             let trim = match trim_row.selected() {
                 1 => Some(true),
                 2 => Some(false),
@@ -948,7 +967,19 @@ fn build_playback_section(
     };
     {
         let save = save.clone();
-        speed_row.connect_selected_notify(move |_| save());
+        let speed_scale = speed_scale.clone();
+        let same = same.clone();
+        speed_row.connect_enable_expansion_notify(move |row| {
+            describe(row, &speed_scale, &same);
+            save();
+        });
+    }
+    {
+        let save = save.clone();
+        let speed_row = speed_row.clone();
+        let same = same.clone();
+        connect_speed_settled(&speed_scale, move |_| save());
+        speed_scale.connect_value_changed(move |scale| describe(&speed_row, scale, &same));
     }
     trim_row.connect_selected_notify(move |_| save());
     let group = libadwaita::PreferencesGroup::builder().title(gettext("Playback")).build();

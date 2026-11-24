@@ -225,29 +225,28 @@ pub fn build_window(
     let speed_button = gtk4::MenuButton::builder().label("1.0×").css_classes(["flat"]).valign(gtk4::Align::Center).build();
     set_accessible_label(&speed_button, &gettext_f("Playback speed {rate}×", &[("rate", "1.00")]));
     let speed_popover = gtk4::Popover::new();
-    let speed_list = gtk4::Box::builder()
-        .orientation(gtk4::Orientation::Vertical)
-        .spacing(2)
-        .margin_start(6)
-        .margin_end(6)
-        .margin_top(6)
-        .margin_bottom(6)
-        .build();
-    for rate in PLAYBACK_RATES {
-        let rate_button = gtk4::Button::builder().label(format!("{rate:.2}×")).css_classes(["flat"]).build();
-        {
-            let command_tx = command_tx.clone();
-            let speed_popover = speed_popover.clone();
-            rate_button.connect_clicked(move |_| {
-                if let Err(e) = command_tx.send(UiCommand::SetPlaybackRate(rate)) {
-                    tracing::error!("failed to send SetPlaybackRate command: {e}");
-                }
-                speed_popover.popdown();
-            });
-        }
-        speed_list.append(&rate_button);
+    let speed_scale = speed_slider();
+    speed_scale.set_size_request(300, -1);
+    speed_scale.set_margin_start(12);
+    speed_scale.set_margin_end(12);
+    speed_scale.set_margin_top(6);
+    speed_scale.set_margin_bottom(6);
+    // The player's reported speed, which moving the slider to isn't sent
+    // back as a change.
+    let speed_from_player = std::rc::Rc::new(std::cell::Cell::new(1.0_f64));
+    {
+        let command_tx = command_tx.clone();
+        let speed_from_player = speed_from_player.clone();
+        connect_speed_settled(&speed_scale, move |rate| {
+            if (rate - speed_from_player.get()).abs() < 0.001 {
+                return;
+            }
+            if let Err(e) = command_tx.send(UiCommand::SetPlaybackRate(rate)) {
+                tracing::error!("failed to send SetPlaybackRate command: {e}");
+            }
+        });
     }
-    speed_popover.set_child(Some(&speed_list));
+    speed_popover.set_child(Some(&speed_scale));
     speed_button.set_popover(Some(&speed_popover));
 
     // The countdown beside the icon shows the timer is running.
@@ -1045,6 +1044,8 @@ pub fn build_window(
         })
     };
     let speed_button = speed_button.clone();
+    let speed_scale = speed_scale.clone();
+    let speed_from_player = speed_from_player.clone();
     let caption = caption.clone();
     let command_tx_for_caption = command_tx.clone();
     let sleep_timer_countdown_label = sleep_timer_countdown_label.clone();
@@ -1186,6 +1187,10 @@ pub fn build_window(
                         scrub_marks_key.replace(Some(marks_key));
                     }
                     speed_button.set_label(&format!("{playback_rate:.2}×"));
+                    speed_from_player.set(playback_rate);
+                    if (speed_scale.value() - playback_rate).abs() > 0.001 && !speed_popover_open(&speed_scale) {
+                        speed_scale.set_value(playback_rate);
+                    }
                     set_accessible_label(&speed_button, &gettext_f("Playback speed {rate}×", &[("rate", &format!("{playback_rate:.2}"))]));
                     if let Some(d) = duration_us.filter(|d| *d > 0) {
                         // Arrow keys move 10 seconds, Page Up and Down a minute.
@@ -1719,4 +1724,10 @@ fn show_about_dialog(window: &libadwaita::ApplicationWindow) {
         about.set_translator_credits(&translators);
     }
     about.present(Some(window));
+}
+
+/// The slider is left alone while its popover is open, so a state update
+/// doesn't fight a drag.
+fn speed_popover_open(scale: &gtk4::Scale) -> bool {
+    scale.ancestor(gtk4::Popover::static_type()).is_some_and(|popover| popover.is_visible())
 }

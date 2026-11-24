@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: phodder\n"
 "Report-Msgid-Bugs-To: https://github.com/\n"
-"POT-Creation-Date: 2026-11-23 18:15-0600\n"
+"POT-Creation-Date: 2026-11-23 21:49-0600\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -116,7 +116,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: crates/phodder/src/ui/add_feed.rs:28
-#: crates/phodder/src/ui/subscription_detail.rs:1051
+#: crates/phodder/src/ui/subscription_detail.rs:1082
 msgid "Feed URL"
 msgstr ""
 
@@ -219,7 +219,7 @@ msgstr ""
 
 #: crates/phodder/src/ui/discover.rs:200
 #: crates/phodder/src/ui/subscriptions.rs:28
-#: crates/phodder/src/ui/window.rs:1419
+#: crates/phodder/src/ui/window.rs:1424
 msgid "Add Podcast"
 msgstr ""
 
@@ -397,12 +397,12 @@ msgstr ""
 
 #: crates/phodder/src/ui/groups.rs:211
 #: crates/phodder/src/ui/subscription_detail.rs:356
-#: crates/phodder/src/ui/window.rs:626
+#: crates/phodder/src/ui/window.rs:625
 msgid "Manage Groups"
 msgstr ""
 
-#: crates/phodder/src/ui/history.rs:15 crates/phodder/src/ui/window.rs:496
-#: crates/phodder/src/ui/window.rs:1417
+#: crates/phodder/src/ui/history.rs:15 crates/phodder/src/ui/window.rs:495
+#: crates/phodder/src/ui/window.rs:1422
 msgid "History"
 msgstr ""
 
@@ -446,16 +446,16 @@ msgid_plural "{n} episodes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/phodder/src/ui/library.rs:445 crates/phodder/src/ui/window.rs:650
+#: crates/phodder/src/ui/library.rs:445 crates/phodder/src/ui/window.rs:649
 msgid "Select Episodes"
 msgstr ""
 
-#: crates/phodder/src/ui/library.rs:491 crates/phodder/src/ui/window.rs:491
-#: crates/phodder/src/ui/window.rs:1415
+#: crates/phodder/src/ui/library.rs:491 crates/phodder/src/ui/window.rs:490
+#: crates/phodder/src/ui/window.rs:1420
 msgid "Library"
 msgstr ""
 
-#: crates/phodder/src/ui/library.rs:508 crates/phodder/src/ui/window.rs:1316
+#: crates/phodder/src/ui/library.rs:508 crates/phodder/src/ui/window.rs:1321
 msgid "Downloading ({percent}%)"
 msgstr ""
 
@@ -577,8 +577,8 @@ msgstr ""
 msgid "Problems"
 msgstr ""
 
-#: crates/phodder/src/ui/queue.rs:14 crates/phodder/src/ui/window.rs:489
-#: crates/phodder/src/ui/window.rs:1414 crates/phodder/src/ui/window.rs:1568
+#: crates/phodder/src/ui/queue.rs:14 crates/phodder/src/ui/window.rs:488
+#: crates/phodder/src/ui/window.rs:1419 crates/phodder/src/ui/window.rs:1573
 msgid "Queue"
 msgstr ""
 
@@ -657,11 +657,11 @@ msgstr[1] ""
 
 #: crates/phodder/src/ui/settings.rs:72
 #: crates/phodder/src/ui/subscription_detail.rs:476
-#: crates/phodder/src/ui/subscription_detail.rs:944
+#: crates/phodder/src/ui/subscription_detail.rs:963
 msgid "Couldn't save changes"
 msgstr ""
 
-#: crates/phodder/src/ui/settings.rs:81 crates/phodder/src/ui/window.rs:1563
+#: crates/phodder/src/ui/settings.rs:81 crates/phodder/src/ui/window.rs:1568
 msgid "General"
 msgstr ""
 
@@ -706,8 +706,8 @@ msgid "Episodes to download when subscribing"
 msgstr ""
 
 #: crates/phodder/src/ui/settings.rs:164
-#: crates/phodder/src/ui/subscription_detail.rs:954
-#: crates/phodder/src/ui/window.rs:1558
+#: crates/phodder/src/ui/subscription_detail.rs:985
+#: crates/phodder/src/ui/window.rs:1563
 msgid "Playback"
 msgstr ""
 
@@ -736,7 +736,7 @@ msgid "Seconds left when an episode counts as played"
 msgstr ""
 
 #: crates/phodder/src/ui/settings.rs:196
-#: crates/phodder/src/ui/subscription_detail.rs:915
+#: crates/phodder/src/ui/subscription_detail.rs:933
 msgid "Trim silence"
 msgstr ""
 
@@ -789,8 +789,8 @@ msgstr ""
 msgid "Searched when adding a podcast"
 msgstr ""
 
-#: crates/phodder/src/ui/settings.rs:293 crates/phodder/src/ui/window.rs:627
-#: crates/phodder/src/ui/window.rs:1420
+#: crates/phodder/src/ui/settings.rs:293 crates/phodder/src/ui/window.rs:626
+#: crates/phodder/src/ui/window.rs:1425
 msgid "Settings"
 msgstr ""
 
@@ -998,47 +998,47 @@ msgstr ""
 msgid "Same as player"
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:909
-msgid "Speed"
+#: crates/phodder/src/ui/subscription_detail.rs:908
+msgid "Override speed"
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:913
-#: crates/phodder/src/ui/window.rs:298
+#: crates/phodder/src/ui/subscription_detail.rs:931
+#: crates/phodder/src/ui/window.rs:297
 msgid "Off"
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:913
+#: crates/phodder/src/ui/subscription_detail.rs:931
 msgid "On"
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:962
+#: crates/phodder/src/ui/subscription_detail.rs:993
 msgid "Skip Chapters"
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:963
+#: crates/phodder/src/ui/subscription_detail.rs:994
 msgid ""
 "Chapters whose titles match are skipped during playback. Seeking into one "
 "plays it."
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:990
+#: crates/phodder/src/ui/subscription_detail.rs:1021
 msgid "Add a chapter title, e.g. sponsor"
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:1002
+#: crates/phodder/src/ui/subscription_detail.rs:1033
 msgid "Remove “{pattern}”"
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:1054
+#: crates/phodder/src/ui/subscription_detail.rs:1085
 msgid "Copy Feed URL"
 msgstr ""
 
-#: crates/phodder/src/ui/subscription_detail.rs:1081
+#: crates/phodder/src/ui/subscription_detail.rs:1112
 msgid "No description available."
 msgstr ""
 
 #: crates/phodder/src/ui/subscriptions.rs:21
-#: crates/phodder/src/ui/window.rs:494 crates/phodder/src/ui/window.rs:1416
+#: crates/phodder/src/ui/window.rs:493 crates/phodder/src/ui/window.rs:1421
 msgid "Subscriptions"
 msgstr ""
 
@@ -1268,8 +1268,12 @@ msgstr[1] ""
 msgid "{size} MB"
 msgstr ""
 
+#: crates/phodder/src/ui/widgets.rs:570
+msgid "Playback speed"
+msgstr ""
+
 #: crates/phodder/src/ui/window.rs:61 crates/phodder/src/ui/window.rs:86
-#: crates/phodder/src/ui/window.rs:1109 crates/phodder/src/ui/window.rs:1204
+#: crates/phodder/src/ui/window.rs:1110 crates/phodder/src/ui/window.rs:1209
 msgid "Nothing playing"
 msgstr ""
 
@@ -1285,11 +1289,11 @@ msgstr ""
 msgid "Restart Episode"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:211 crates/phodder/src/ui/window.rs:1410
+#: crates/phodder/src/ui/window.rs:211 crates/phodder/src/ui/window.rs:1415
 msgid "Previous Chapter"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:212 crates/phodder/src/ui/window.rs:1411
+#: crates/phodder/src/ui/window.rs:212 crates/phodder/src/ui/window.rs:1416
 msgid "Next Chapter"
 msgstr ""
 
@@ -1297,261 +1301,261 @@ msgstr ""
 msgid "Next Episode"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:226 crates/phodder/src/ui/window.rs:1189
+#: crates/phodder/src/ui/window.rs:226 crates/phodder/src/ui/window.rs:1194
 msgid "Playback speed {rate}×"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:256
+#: crates/phodder/src/ui/window.rs:255
 msgid "Sleep Timer"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:259 crates/phodder/src/ui/window.rs:1143
+#: crates/phodder/src/ui/window.rs:258 crates/phodder/src/ui/window.rs:1144
 msgid "Sleep timer: off"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:270
+#: crates/phodder/src/ui/window.rs:269
 msgid "End of episode"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:282
+#: crates/phodder/src/ui/window.rs:281
 msgid "{n} minute"
 msgid_plural "{n} minutes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/phodder/src/ui/window.rs:317 crates/phodder/src/ui/window.rs:439
+#: crates/phodder/src/ui/window.rs:316 crates/phodder/src/ui/window.rs:438
 msgid "Episode Details"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:375
+#: crates/phodder/src/ui/window.rs:374
 msgid "Player: {title}"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:377
+#: crates/phodder/src/ui/window.rs:376
 msgid "Player: {title}, {subtitle}"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:434
+#: crates/phodder/src/ui/window.rs:433
 msgid "Back to Player"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:509 crates/phodder/src/ui/window.rs:1346
+#: crates/phodder/src/ui/window.rs:508 crates/phodder/src/ui/window.rs:1351
 msgid "Refresh All"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:629
+#: crates/phodder/src/ui/window.rs:628
 msgid "Import OPML…"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:630
+#: crates/phodder/src/ui/window.rs:629
 msgid "Export OPML…"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:633
+#: crates/phodder/src/ui/window.rs:632
 msgid "Back Up Library…"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:634
+#: crates/phodder/src/ui/window.rs:633
 msgid "Restore Library…"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:637 crates/phodder/src/ui/window.rs:1421
+#: crates/phodder/src/ui/window.rs:636 crates/phodder/src/ui/window.rs:1426
 msgid "Keyboard Shortcuts"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:638
+#: crates/phodder/src/ui/window.rs:637
 msgid "About Phodder"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:639 crates/phodder/src/ui/window.rs:1423
+#: crates/phodder/src/ui/window.rs:638 crates/phodder/src/ui/window.rs:1428
 msgid "Quit"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:642
+#: crates/phodder/src/ui/window.rs:641
 msgid "Menu"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:714
+#: crates/phodder/src/ui/window.rs:713
 msgid "Import OPML"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:722 crates/phodder/src/ui/window.rs:778
+#: crates/phodder/src/ui/window.rs:721 crates/phodder/src/ui/window.rs:777
 msgid "Couldn't determine the selected file's path"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:728
+#: crates/phodder/src/ui/window.rs:727
 msgid "Couldn't reach the backend to import"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:734
+#: crates/phodder/src/ui/window.rs:733
 msgid "Imported {n} feed"
 msgid_plural "Imported {n} feeds"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/phodder/src/ui/window.rs:740
+#: crates/phodder/src/ui/window.rs:739
 msgid "{imported} · {already} already subscribed · {failed} failed"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:751
+#: crates/phodder/src/ui/window.rs:750
 msgid "Import failed: {error}"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:754
+#: crates/phodder/src/ui/window.rs:753
 msgid "Import failed: the backend didn't respond"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:772
+#: crates/phodder/src/ui/window.rs:771
 msgid "Export OPML"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:784
+#: crates/phodder/src/ui/window.rs:783
 msgid "Couldn't reach the backend to export"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:789
+#: crates/phodder/src/ui/window.rs:788
 msgid "Subscriptions exported"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:793
+#: crates/phodder/src/ui/window.rs:792
 msgid "Export failed: {error}"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:796
+#: crates/phodder/src/ui/window.rs:795
 msgid "Export failed: the backend didn't respond"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1106
+#: crates/phodder/src/ui/window.rs:1107
 msgid "No episodes queued"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1107
+#: crates/phodder/src/ui/window.rs:1108
 msgid "Queue episodes from Library or History"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1110
+#: crates/phodder/src/ui/window.rs:1111
 msgid "{n} episode queued"
 msgid_plural "{n} episodes queued"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/phodder/src/ui/window.rs:1130
+#: crates/phodder/src/ui/window.rs:1131
 msgid "Episode end"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1132
+#: crates/phodder/src/ui/window.rs:1133
 msgid "Sleep timer: end of episode"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1139
+#: crates/phodder/src/ui/window.rs:1140
 msgid "Sleep timer: {n} minute left"
 msgid_plural "Sleep timer: {n} minutes left"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/phodder/src/ui/window.rs:1343
+#: crates/phodder/src/ui/window.rs:1348
 msgid "Refresh All, refreshing"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1382
+#: crates/phodder/src/ui/window.rs:1387
 msgid "{position} of {duration}"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1407
+#: crates/phodder/src/ui/window.rs:1412
 msgid "Play or Pause"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1408
+#: crates/phodder/src/ui/window.rs:1413
 msgid "Skip Backward"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1409
+#: crates/phodder/src/ui/window.rs:1414
 msgid "Skip Forward"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1418
+#: crates/phodder/src/ui/window.rs:1423
 msgid "Refresh Feeds"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1422
+#: crates/phodder/src/ui/window.rs:1427
 msgid "Close Window"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1426
+#: crates/phodder/src/ui/window.rs:1431
 msgid "Move Episode Down"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1426
+#: crates/phodder/src/ui/window.rs:1431
 msgid "Move Episode Up"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1437
+#: crates/phodder/src/ui/window.rs:1442
 msgid "Ctrl"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1438
+#: crates/phodder/src/ui/window.rs:1443
 msgid "Shift"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1439
+#: crates/phodder/src/ui/window.rs:1444
 msgid "Alt"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1445
+#: crates/phodder/src/ui/window.rs:1450
 msgid "Space"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1446
+#: crates/phodder/src/ui/window.rs:1451
 msgid "Left Arrow"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1447
+#: crates/phodder/src/ui/window.rs:1452
 msgid "Right Arrow"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1448
+#: crates/phodder/src/ui/window.rs:1453
 msgid "Up Arrow"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1449
+#: crates/phodder/src/ui/window.rs:1454
 msgid "Down Arrow"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1450
+#: crates/phodder/src/ui/window.rs:1455
 msgid "Comma"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1451
+#: crates/phodder/src/ui/window.rs:1456
 msgid "Question Mark"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1463
+#: crates/phodder/src/ui/window.rs:1468
 msgid "Search shortcuts"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1468
+#: crates/phodder/src/ui/window.rs:1473
 msgid "{action}, {keys}"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1637 crates/phodder/src/ui/window.rs:1700
+#: crates/phodder/src/ui/window.rs:1642 crates/phodder/src/ui/window.rs:1705
 msgid "Show Transcript"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1691
+#: crates/phodder/src/ui/window.rs:1696
 msgid "{speaker}: {text}"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1713
+#: crates/phodder/src/ui/window.rs:1718
 msgid "Donate"
 msgstr ""
 
-#: crates/phodder/src/ui/window.rs:1714
+#: crates/phodder/src/ui/window.rs:1719
 msgid "Source Code"
 msgstr ""
 
 #. Translators: replace with your names, one per line, to be credited in
 #. the About dialog.
-#: crates/phodder/src/ui/window.rs:1717
+#: crates/phodder/src/ui/window.rs:1722
 msgid "translator-credits"
 msgstr ""
 
@@ -1590,7 +1594,7 @@ msgid "Sync with Nextcloud GPodder Sync"
 msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:17
-#: data/net.dunevent.Phodder.metainfo.xml:123
+#: data/net.dunevent.Phodder.metainfo.xml:130
 msgid "Pauses for calls and resumes when Bluetooth reconnects"
 msgstr ""
 
@@ -1600,159 +1604,165 @@ msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:49
 msgid ""
+"Playback speed is set with a slider, in steps of 0.25×, in the player and "
+"for a podcast's own speed."
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:56
+msgid ""
 "In Library, selecting episodes counts and acts on only the episodes the "
 "current filter shows."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:50
+#: data/net.dunevent.Phodder.metainfo.xml:57
 msgid ""
 "A podcast's Episodes tab can select one page or every episode, and "
 "selections on other pages count."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:51
+#: data/net.dunevent.Phodder.metainfo.xml:58
 msgid "Downloading more than 20 selected episodes asks first."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:58
+#: data/net.dunevent.Phodder.metainfo.xml:65
 msgid "The Refresh button turns smoothly instead of wobbling."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:59
+#: data/net.dunevent.Phodder.metainfo.xml:66
 msgid "Playback resumes after a call you didn't answer."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:60
+#: data/net.dunevent.Phodder.metainfo.xml:67
 msgid ""
 "Select several episodes at once to download, queue, mark, or delete them "
 "together. Long press or right click an episode, or use the Select button."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:61
+#: data/net.dunevent.Phodder.metainfo.xml:68
 msgid ""
 "Podcasts can have their own playback speed. Changing the speed while one "
 "plays lasts for that episode."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:62
+#: data/net.dunevent.Phodder.metainfo.xml:69
 msgid "Trim silence shortens long pauses, for every podcast or only some."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:63
+#: data/net.dunevent.Phodder.metainfo.xml:70
 msgid "Back up your library to a file and restore it, from the main menu."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:64
+#: data/net.dunevent.Phodder.metainfo.xml:71
 msgid ""
 "Play an episode before subscribing, from a podcast's preview in Add Podcast."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:65
+#: data/net.dunevent.Phodder.metainfo.xml:72
 msgid "Calls pause playback on every modem, including a second SIM."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:66
+#: data/net.dunevent.Phodder.metainfo.xml:73
 msgid "A sync problem's Details open Settings at the Sync section."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:73
+#: data/net.dunevent.Phodder.metainfo.xml:80
 msgid ""
 "When the audio output isn't ready, such as a car still connecting, Phodder "
 "tries the episode again instead of skipping to the next one."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:74
+#: data/net.dunevent.Phodder.metainfo.xml:81
 msgid "Switching off a car stereo pauses the episode instead of unloading it."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:75
+#: data/net.dunevent.Phodder.metainfo.xml:82
 msgid "The Refresh button turns while podcasts are refreshing."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:76
+#: data/net.dunevent.Phodder.metainfo.xml:83
 msgid ""
 "Delete All Files in History works, says how many files it deleted, and is "
 "unavailable when there's nothing to delete."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:77
+#: data/net.dunevent.Phodder.metainfo.xml:84
 msgid "Missing podcast and episode artwork is downloaded again."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:78
+#: data/net.dunevent.Phodder.metainfo.xml:85
 msgid ""
 "A failing gPodder or Nextcloud sync shows in the problem bar until it works "
 "again."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:79
+#: data/net.dunevent.Phodder.metainfo.xml:86
 msgid ""
 "Playing with nothing loaded resumes the episode you were listening to, not "
 "whatever is first in the queue."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:86
+#: data/net.dunevent.Phodder.metainfo.xml:93
 msgid ""
 "Headset and media-key previous and next buttons skip back and forward; press "
 "twice to restart the episode or move to the next one."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:87
+#: data/net.dunevent.Phodder.metainfo.xml:94
 msgid "A stray previous press from a headset no longer restarts the episode."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:88
+#: data/net.dunevent.Phodder.metainfo.xml:95
 msgid ""
 "Phodder steps aside from headset and media-key buttons while another player "
 "is playing, so they control that player."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:95
+#: data/net.dunevent.Phodder.metainfo.xml:102
 msgid "A lighter mini player, matching Paradon's."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:96
+#: data/net.dunevent.Phodder.metainfo.xml:103
 msgid "The app icon's play button is now slate with a white outline."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:103
+#: data/net.dunevent.Phodder.metainfo.xml:110
 msgid "Phodder no longer leaves a hidden window running in the background."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:104
+#: data/net.dunevent.Phodder.metainfo.xml:111
 msgid ""
 "Phodder in the background gives memory back after refreshing large feeds."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:105
+#: data/net.dunevent.Phodder.metainfo.xml:112
 msgid ""
 "The player keeps showing the episode when a Bluetooth device disconnects."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:106
+#: data/net.dunevent.Phodder.metainfo.xml:113
 msgid "The app icon is taller, to match other icons of its shape."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:112
+#: data/net.dunevent.Phodder.metainfo.xml:119
 msgid "Quit now also stops Phodder in the background."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:117
+#: data/net.dunevent.Phodder.metainfo.xml:124
 msgid "First release."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:119
+#: data/net.dunevent.Phodder.metainfo.xml:126
 msgid "A queue ordered by group, so daily shows come first"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:120
+#: data/net.dunevent.Phodder.metainfo.xml:127
 msgid "Background refreshes and downloads, with filters and expiry per podcast"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:121
+#: data/net.dunevent.Phodder.metainfo.xml:128
 msgid "Chapters, automatic chapter skipping and transcripts"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:122
+#: data/net.dunevent.Phodder.metainfo.xml:129
 msgid "Sync with Nextcloud GPodder Sync and gpodder.net"
 msgstr ""
