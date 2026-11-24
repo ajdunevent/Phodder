@@ -140,6 +140,9 @@ struct Inner {
     active: Cell<bool>,
     selected: RefCell<Vec<Key>>,
     rows: RefCell<HashMap<Key, Row>>,
+    /// A paged list's every item, including other pages' (a podcast's
+    /// Episodes tab). Empty for lists that show everything.
+    all_items: RefCell<Vec<Item>>,
     name: String,
     bars: RefCell<Option<Bars>>,
     context: RefCell<Option<(std::path::PathBuf, UnboundedSender<UiCommand>, libadwaita::ToastOverlay)>>,
@@ -165,6 +168,7 @@ pub(super) fn scope(name: &str) -> Selection {
                     active: Cell::new(false),
                     selected: RefCell::default(),
                     rows: RefCell::default(),
+                    all_items: RefCell::default(),
                     name: name.to_string(),
                     bars: RefCell::default(),
                     context: RefCell::default(),
@@ -222,7 +226,15 @@ impl Selection {
     /// what actions need.
     pub(super) fn begin_page(&self, db_path: &std::path::Path, command_tx: &UnboundedSender<UiCommand>, toast_overlay: &libadwaita::ToastOverlay) {
         self.0.rows.borrow_mut().clear();
+        self.0.all_items.borrow_mut().clear();
         *self.0.context.borrow_mut() = Some((db_path.to_path_buf(), command_tx.clone(), toast_overlay.clone()));
+    }
+
+    /// For a list of more than one page, after begin_page: every item on
+    /// every page, so selections on other pages count and Select All can
+    /// cover them.
+    pub(super) fn set_all_items(&self, items: Vec<Item>) {
+        *self.0.all_items.borrow_mut() = items;
     }
 
     /// Adds a checkbox to the start of `row`, and long-press and right-click
@@ -310,17 +322,37 @@ impl Selection {
 
     /// Rows hidden by a filter are left alone.
     fn set_all(&self, on: bool) {
-        let checks: Vec<gtk4::CheckButton> = self
-            .0
-            .rows
-            .borrow()
-            .values()
-            .filter_map(|r| r.check.upgrade())
-            .filter(|check| check.ancestor(gtk4::ListBoxRow::static_type()).is_some_and(|row| row.is_visible()))
-            .collect();
+        let checks: Vec<gtk4::CheckButton> =
+            self.0.rows.borrow().values().filter_map(|r| r.check.upgrade()).filter(|check| row_shown(check)).collect();
         for check in checks {
             check.set_active(on);
         }
+    }
+
+    /// Every page of a paged list.
+    fn select_everything(&self) {
+        {
+            let mut selected = self.0.selected.borrow_mut();
+            for item in self.0.all_items.borrow().iter() {
+                let key = item.key();
+                if !selected.contains(&key) {
+                    selected.push(key);
+                }
+            }
+        }
+        self.set_all(true);
+        self.schedule_refresh();
+    }
+
+    /// Including rows on other pages and ones a filter hides.
+    fn select_none(&self) {
+        self.0.selected.borrow_mut().clear();
+        self.set_all(false);
+        self.schedule_refresh();
+    }
+
+    fn is_paged(&self) -> bool {
+        !self.0.all_items.borrow().is_empty()
     }
 
     /// Wraps a page's content with the selection bars. `idle_top` is the
@@ -331,7 +363,16 @@ impl Selection {
         let page = gtk4::Box::builder().orientation(gtk4::Orientation::Vertical).vexpand(true).build();
 
         let select_menu = gtk4::gio::Menu::new();
-        select_menu.append(Some(&gettext("Select _All")), Some("selection.all"));
+        if self.is_paged() {
+            let total = self.0.all_items.borrow().len();
+            select_menu.append(Some(&gettext("Select _Page")), Some("selection.all"));
+            select_menu.append(
+                Some(&ngettext_f("Select All {n} Episode", "Select All {n} Episodes", total as u32, &[("n", &total.to_string())])),
+                Some("selection.everything"),
+            );
+        } else {
+            select_menu.append(Some(&gettext("Select _All")), Some("selection.all"));
+        }
         select_menu.append(Some(&gettext("Select _None")), Some("selection.none"));
         let count = gtk4::MenuButton::builder().menu_model(&select_menu).css_classes(["flat"]).build();
         let actions = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
@@ -355,10 +396,12 @@ impl Selection {
         let top = gtk4::Revealer::builder().child(&top_bar).reveal_child(self.is_active()).build();
 
         let group = gtk4::gio::SimpleActionGroup::new();
-        for (name, on) in [("all", true), ("none", false)] {
+        let handlers: [(&str, fn(&Selection)); 3] =
+            [("all", |s| s.set_all(true)), ("everything", Selection::select_everything), ("none", Selection::select_none)];
+        for (name, handler) in handlers {
             let action = gtk4::gio::SimpleAction::new(name, None);
             let scope = self.clone();
-            action.connect_activate(move |_, _| scope.set_all(on));
+            action.connect_activate(move |_, _| handler(&scope));
             group.add_action(&action);
         }
         page.insert_action_group("selection", Some(&group));
@@ -414,9 +457,26 @@ impl Selection {
         });
     }
 
+    /// Rows a filter hides stay checked but aren't counted or acted on.
+    /// Selections on a paged list's other pages count.
     fn selected_items(&self) -> Vec<Item> {
         let rows = self.0.rows.borrow();
-        self.0.selected.borrow().iter().filter_map(|key| rows.get(key).map(|r| r.item.clone())).collect()
+        let all_items = self.0.all_items.borrow();
+        let elsewhere: HashMap<Key, &Item> = all_items.iter().map(|item| (item.key(), item)).collect();
+        self.0
+            .selected
+            .borrow()
+            .iter()
+            .filter_map(|key| match rows.get(key) {
+                Some(row) => row.check.upgrade().is_some_and(|check| row_shown(&check)).then(|| row.item.clone()),
+                None => elsewhere.get(key).map(|item| (*item).clone()),
+            })
+            .collect()
+    }
+
+    /// After a page's filter changes which rows are shown.
+    pub(super) fn filter_changed(&self) {
+        self.schedule_refresh();
     }
 
     fn refresh_now(&self) {
@@ -461,17 +521,60 @@ impl Selection {
             let db_path = db_path.clone();
             let command_tx = command_tx.clone();
             let toast_overlay = toast_overlay.clone();
-            button.connect_clicked(move |_| {
-                let done = perform(action, &items, &facts, &db_path, &command_tx);
-                if done > 0 {
-                    toast_overlay.add_toast(libadwaita::Toast::new(&action.done_message(done)));
+            button.connect_clicked(move |button| {
+                let run = {
+                    let (scope, items, facts, db_path, command_tx, toast_overlay) =
+                        (scope.clone(), items.clone(), facts.clone(), db_path.clone(), command_tx.clone(), toast_overlay.clone());
+                    move || {
+                        let done = perform(action, &items, &facts, &db_path, &command_tx);
+                        if done > 0 {
+                            toast_overlay.add_toast(libadwaita::Toast::new(&action.done_message(done)));
+                        }
+                        let _ = command_tx.send(UiCommand::NotifyDataChanged);
+                        scope.set_active(false);
+                    }
+                };
+                if action != Action::Download || items.len() <= DOWNLOAD_CONFIRM_OVER {
+                    run();
+                    return;
                 }
-                let _ = command_tx.send(UiCommand::NotifyDataChanged);
-                scope.set_active(false);
+                let n = items.len();
+                let size: Option<i64> = items
+                    .iter()
+                    .map(|item| match item {
+                        Item::Feed { episode, .. } => episode.file_size_bytes.filter(|b| *b > 0),
+                        Item::Episode(_) => None,
+                    })
+                    .sum();
+                let body = match size.and_then(|bytes| u64::try_from(bytes).ok()) {
+                    Some(bytes) => gettext_f("About {size} in all.", &[("size", &gtk4::glib::format_size(bytes))]),
+                    None => String::new(),
+                };
+                let alert = libadwaita::AlertDialog::new(
+                    Some(&ngettext_f("Download {n} Episode?", "Download {n} Episodes?", n as u32, &[("n", &n.to_string())])),
+                    (!body.is_empty()).then_some(body.as_str()),
+                );
+                alert.add_responses(&[("cancel", &gettext("Cancel")), ("download", &gettext("Download"))]);
+                alert.set_response_appearance("download", libadwaita::ResponseAppearance::Suggested);
+                alert.set_default_response(Some("download"));
+                alert.set_close_response("cancel");
+                let button = button.clone();
+                gtk4::glib::spawn_future_local(async move {
+                    if alert.choose_future(Some(&button)).await == "download" {
+                        run();
+                    }
+                });
             });
             actions.append(&button);
         }
     }
+}
+
+/// Downloading more than this many at once asks first.
+const DOWNLOAD_CONFIRM_OVER: usize = 20;
+
+fn row_shown(check: &gtk4::CheckButton) -> bool {
+    check.ancestor(gtk4::ListBoxRow::static_type()).is_some_and(|row| row.is_visible())
 }
 
 fn read_facts(db_path: &std::path::Path, items: &[Item]) -> Vec<Facts> {

@@ -43,6 +43,15 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.2.1" date="2026-11-23">
+      <description>
+        <ul>
+          <li>In Library, selecting episodes counts and acts on only the episodes the current filter shows.</li>
+          <li>A podcast's Episodes tab can select one page or every episode, and selections on other pages count.</li>
+          <li>Downloading more than 20 selected episodes asks first.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-11-23">
       <description>
         <ul>

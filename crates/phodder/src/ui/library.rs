@@ -221,6 +221,11 @@ pub(super) fn build_back_catalog_episode_list(
     let selection = selection::scope(&format!("podcast:{subscription_id}"));
     selection.begin_page(&db_path, &command_tx, &toast_overlay);
     let total_pages = (parsed_episodes.len() + PAGE_SIZE - 1) / PAGE_SIZE;
+    if total_pages > 1 {
+        selection.set_all_items(
+            parsed_episodes.iter().map(|episode| selection::Item::Feed { subscription_id, episode: episode.clone() }).collect(),
+        );
+    }
     let page_start = page_index * PAGE_SIZE;
     let page_end = (page_start + PAGE_SIZE).min(parsed_episodes.len());
 
@@ -649,6 +654,7 @@ pub(super) fn build_library_page_from_data(
             }
             scroller.set_visible(any_visible);
             empty_page.set_visible(!any_visible);
+            selection::scope("library").filter_changed();
             // Whole sentences per filter, so each translates naturally.
             empty_page.set_title(&match filter.as_ref() {
                 "pending" => gettext("No Pending Episodes"),

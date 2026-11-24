@@ -234,9 +234,13 @@ choices worth remembering:
   Select All/None) and every action, dimming any that doesn't apply to every
   selected episode. Opposite pairs (Add/Remove from Queue, Mark
   Played/Unplayed) share a button so the bar fits a phone. Actions run on
-  one tap. An action ends the mode. History has no Delete All or Clear All; Select All covers both.
-  Select All only touches rows the current filter shows. Switching tabs
-  leaves the mode.
+  one tap. An action ends the mode. History has no Delete All or Clear
+  All; Select All covers both. Select All, the count and actions cover
+  only rows the current filter shows; hidden rows stay checked. On a
+  podcast's Episodes tab with more than one page, the menu offers Select
+  Page and "Select All {n} Episodes", and selections on other pages count.
+  Downloading more than 20 at once asks first, with the total size when
+  the feed gives sizes. Switching tabs leaves the mode.
 - **Swipe actions dropped** (no stock libadwaita widget for it).
 - Skip intervals (forward/backward) are independently configurable and
   apply to the buttons, shortcuts and MPRIS.
