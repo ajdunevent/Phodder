@@ -85,6 +85,10 @@ its window is built at startup, hidden, so the process would stay with no
 window; it quits if nothing shows the window within 10 s. **Launch on Startup** requires Run in Background and starts only
 the service; under Flatpak both ask the Background portal
 (`org.freedesktop.portal.Background`) and revert the switch if refused.
+Under Flatpak the service also sets the portal's status line (the text
+under Phodder in the desktop's background apps list): "Playing: title" or
+"Paused: title", plus "Checking for new episodes" or "Downloading n
+episodes", or "Idle"; at most 96 characters, sent only when it changes.
 
 **Memory tuning**: `M_ARENA_MAX` is 2 (set before any thread starts) and
 each process's Tokio runtime has two workers, since glibc otherwise

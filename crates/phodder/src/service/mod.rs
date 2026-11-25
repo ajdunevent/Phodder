@@ -223,7 +223,9 @@ async fn backend(mut command_rx: tokio::sync::mpsc::UnboundedReceiver<Incoming>,
     crate::mpris_peer_watch::spawn_mpris_peer_watcher(core.clone());
     crate::bluetooth_watch::spawn_bluetooth_watcher(core.clone());
 
-    tokio::spawn(forward_updates(ui_rx, hub.clone(), core.clone(), main_tx.clone()));
+    let status = Arc::new(crate::background_portal::Status::default());
+    tokio::spawn(status.clone().run());
+    tokio::spawn(forward_updates(ui_rx, hub.clone(), core.clone(), main_tx.clone(), status));
     tokio::spawn(watch_clients(connection.clone(), hub.clone(), main_tx.clone()));
     tokio::spawn(forget_silent_windows(hub.clone(), main_tx.clone()));
 
@@ -367,8 +369,15 @@ async fn last_window_closed(main_tx: &async_channel::Sender<MainEvent>) {
     }
 }
 
-async fn forward_updates(ui_rx: async_channel::Receiver<UiUpdate>, hub: Arc<Hub>, core: Arc<PlayerCore>, main_tx: async_channel::Sender<MainEvent>) {
+async fn forward_updates(
+    ui_rx: async_channel::Receiver<UiUpdate>,
+    hub: Arc<Hub>,
+    core: Arc<PlayerCore>,
+    main_tx: async_channel::Sender<MainEvent>,
+    status: Arc<crate::background_portal::Status>,
+) {
     while let Ok(update) = ui_rx.recv().await {
+        status.observe(&update);
         match update {
             UiUpdate::NewEpisodes { subscription_id, podcast_title, episode_titles } => {
                 let _ = main_tx.send(MainEvent::NewEpisodes { subscription_id, podcast_title, episode_titles }).await;

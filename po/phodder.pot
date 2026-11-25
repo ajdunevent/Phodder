@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: phodder\n"
 "Report-Msgid-Bugs-To: https://github.com/\n"
-"POT-Creation-Date: 2026-11-23 21:49-0600\n"
+"POT-Creation-Date: 2026-11-25 15:46-0600\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -22,24 +22,46 @@ msgstr ""
 msgid "Refresh podcasts and download episodes after login"
 msgstr ""
 
-#: crates/phodder/src/downloader.rs:389
+#: crates/phodder/src/background_portal.rs:99
+msgid "Checking for new episodes"
+msgstr ""
+
+#: crates/phodder/src/background_portal.rs:101
+msgid "Downloading {n} episode"
+msgid_plural "Downloading {n} episodes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/phodder/src/background_portal.rs:109
+msgid "Playing: {title}"
+msgstr ""
+
+#: crates/phodder/src/background_portal.rs:111
+msgid "Paused: {title}"
+msgstr ""
+
+#: crates/phodder/src/background_portal.rs:117
+msgid "Idle"
+msgstr ""
+
+#: crates/phodder/src/downloader.rs:393
 msgid "Feed refresh failed: {error}"
 msgstr ""
 
-#: crates/phodder/src/downloader.rs:402
+#: crates/phodder/src/downloader.rs:406
 #: crates/phodder/src/service/commands.rs:190
 msgid "Download pass failed: {error}"
 msgstr ""
 
-#: crates/phodder/src/downloader.rs:1181
+#: crates/phodder/src/downloader.rs:1185
 msgid "A download crashed unexpectedly"
 msgstr ""
 
-#: crates/phodder/src/downloader.rs:1254
+#: crates/phodder/src/downloader.rs:1258
 msgid "“{episode}” couldn't download: not enough disk space"
 msgstr ""
 
-#: crates/phodder/src/downloader.rs:1289
+#: crates/phodder/src/downloader.rs:1293
 msgid "“{episode}” failed to download after {attempts} attempts"
 msgstr ""
 
@@ -1594,7 +1616,7 @@ msgid "Sync with Nextcloud GPodder Sync"
 msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:17
-#: data/net.dunevent.Phodder.metainfo.xml:130
+#: data/net.dunevent.Phodder.metainfo.xml:137
 msgid "Pauses for calls and resumes when Bluetooth reconnects"
 msgstr ""
 
@@ -1604,165 +1626,171 @@ msgstr ""
 
 #: data/net.dunevent.Phodder.metainfo.xml:49
 msgid ""
+"The desktop's list of background apps shows what Phodder is playing and "
+"whether it's checking for or downloading episodes."
+msgstr ""
+
+#: data/net.dunevent.Phodder.metainfo.xml:56
+msgid ""
 "Playback speed is set with a slider, in steps of 0.25×, in the player and "
 "for a podcast's own speed."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:56
+#: data/net.dunevent.Phodder.metainfo.xml:63
 msgid ""
 "In Library, selecting episodes counts and acts on only the episodes the "
 "current filter shows."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:57
+#: data/net.dunevent.Phodder.metainfo.xml:64
 msgid ""
 "A podcast's Episodes tab can select one page or every episode, and "
 "selections on other pages count."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:58
+#: data/net.dunevent.Phodder.metainfo.xml:65
 msgid "Downloading more than 20 selected episodes asks first."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:65
+#: data/net.dunevent.Phodder.metainfo.xml:72
 msgid "The Refresh button turns smoothly instead of wobbling."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:66
+#: data/net.dunevent.Phodder.metainfo.xml:73
 msgid "Playback resumes after a call you didn't answer."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:67
+#: data/net.dunevent.Phodder.metainfo.xml:74
 msgid ""
 "Select several episodes at once to download, queue, mark, or delete them "
 "together. Long press or right click an episode, or use the Select button."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:68
+#: data/net.dunevent.Phodder.metainfo.xml:75
 msgid ""
 "Podcasts can have their own playback speed. Changing the speed while one "
 "plays lasts for that episode."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:69
+#: data/net.dunevent.Phodder.metainfo.xml:76
 msgid "Trim silence shortens long pauses, for every podcast or only some."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:70
+#: data/net.dunevent.Phodder.metainfo.xml:77
 msgid "Back up your library to a file and restore it, from the main menu."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:71
+#: data/net.dunevent.Phodder.metainfo.xml:78
 msgid ""
 "Play an episode before subscribing, from a podcast's preview in Add Podcast."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:72
+#: data/net.dunevent.Phodder.metainfo.xml:79
 msgid "Calls pause playback on every modem, including a second SIM."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:73
+#: data/net.dunevent.Phodder.metainfo.xml:80
 msgid "A sync problem's Details open Settings at the Sync section."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:80
+#: data/net.dunevent.Phodder.metainfo.xml:87
 msgid ""
 "When the audio output isn't ready, such as a car still connecting, Phodder "
 "tries the episode again instead of skipping to the next one."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:81
+#: data/net.dunevent.Phodder.metainfo.xml:88
 msgid "Switching off a car stereo pauses the episode instead of unloading it."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:82
+#: data/net.dunevent.Phodder.metainfo.xml:89
 msgid "The Refresh button turns while podcasts are refreshing."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:83
+#: data/net.dunevent.Phodder.metainfo.xml:90
 msgid ""
 "Delete All Files in History works, says how many files it deleted, and is "
 "unavailable when there's nothing to delete."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:84
+#: data/net.dunevent.Phodder.metainfo.xml:91
 msgid "Missing podcast and episode artwork is downloaded again."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:85
+#: data/net.dunevent.Phodder.metainfo.xml:92
 msgid ""
 "A failing gPodder or Nextcloud sync shows in the problem bar until it works "
 "again."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:86
+#: data/net.dunevent.Phodder.metainfo.xml:93
 msgid ""
 "Playing with nothing loaded resumes the episode you were listening to, not "
 "whatever is first in the queue."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:93
+#: data/net.dunevent.Phodder.metainfo.xml:100
 msgid ""
 "Headset and media-key previous and next buttons skip back and forward; press "
 "twice to restart the episode or move to the next one."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:94
+#: data/net.dunevent.Phodder.metainfo.xml:101
 msgid "A stray previous press from a headset no longer restarts the episode."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:95
+#: data/net.dunevent.Phodder.metainfo.xml:102
 msgid ""
 "Phodder steps aside from headset and media-key buttons while another player "
 "is playing, so they control that player."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:102
+#: data/net.dunevent.Phodder.metainfo.xml:109
 msgid "A lighter mini player, matching Paradon's."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:103
+#: data/net.dunevent.Phodder.metainfo.xml:110
 msgid "The app icon's play button is now slate with a white outline."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:110
+#: data/net.dunevent.Phodder.metainfo.xml:117
 msgid "Phodder no longer leaves a hidden window running in the background."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:111
+#: data/net.dunevent.Phodder.metainfo.xml:118
 msgid ""
 "Phodder in the background gives memory back after refreshing large feeds."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:112
+#: data/net.dunevent.Phodder.metainfo.xml:119
 msgid ""
 "The player keeps showing the episode when a Bluetooth device disconnects."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:113
+#: data/net.dunevent.Phodder.metainfo.xml:120
 msgid "The app icon is taller, to match other icons of its shape."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:119
+#: data/net.dunevent.Phodder.metainfo.xml:126
 msgid "Quit now also stops Phodder in the background."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:124
+#: data/net.dunevent.Phodder.metainfo.xml:131
 msgid "First release."
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:126
+#: data/net.dunevent.Phodder.metainfo.xml:133
 msgid "A queue ordered by group, so daily shows come first"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:127
+#: data/net.dunevent.Phodder.metainfo.xml:134
 msgid "Background refreshes and downloads, with filters and expiry per podcast"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:128
+#: data/net.dunevent.Phodder.metainfo.xml:135
 msgid "Chapters, automatic chapter skipping and transcripts"
 msgstr ""
 
-#: data/net.dunevent.Phodder.metainfo.xml:129
+#: data/net.dunevent.Phodder.metainfo.xml:136
 msgid "Sync with Nextcloud GPodder Sync and gpodder.net"
 msgstr ""

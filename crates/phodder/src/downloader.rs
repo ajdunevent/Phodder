@@ -93,6 +93,10 @@ fn episode_qualifies_for_auto_download(
 static ACTIVE_DOWNLOADS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<i64, tokio::task::AbortHandle>>> =
     std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
 
+pub(crate) fn active_download_count() -> usize {
+    ACTIVE_DOWNLOADS.lock().expect("ACTIVE_DOWNLOADS mutex shouldn't be poisoned").len()
+}
+
 pub(crate) fn cancel_all_downloads() {
     let ids: Vec<i64> = ACTIVE_DOWNLOADS.lock().expect("ACTIVE_DOWNLOADS mutex shouldn't be poisoned").keys().copied().collect();
     for id in ids {

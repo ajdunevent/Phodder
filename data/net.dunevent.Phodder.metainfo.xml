@@ -43,6 +43,13 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.2.3" date="2026-11-25">
+      <description>
+        <ul>
+          <li>The desktop's list of background apps shows what Phodder is playing and whether it's checking for or downloading episodes.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.2" date="2026-11-24">
       <description>
         <ul>
