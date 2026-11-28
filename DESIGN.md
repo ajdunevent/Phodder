@@ -382,6 +382,13 @@ choices worth remembering:
   Add by Feed URL" with no special handling.
 - **Password-protected (HTTP Basic Auth) feeds: dropped.** Private feeds
   in practice are gated by an unguessable URL, not a login.
+- Dates: `parse_pub_date` reads RFC 2822 and its near misses (one-digit
+  hours such as linuxlads.com's "0:00:00", a wrong day name, "UTC", RFC
+  3339). An unreadable date is placed beside its neighbours in the feed
+  (`publish_date_estimated`); before this it was "now", so old episodes
+  sorted as newest in previews and were auto-downloaded on subscribing.
+  The Episodes tab's full parse rewrites stored dates that differ from the
+  feed's readable ones, since refreshes stop at the first known episode.
 
 ## 8. Discovery
 

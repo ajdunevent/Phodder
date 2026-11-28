@@ -41,10 +41,54 @@ pub struct ParsedEpisode {
     pub file_size_bytes: Option<i64>,
     pub duration_ms: Option<i64>,
     pub publish_date: DateTime<Utc>,
+    /// The pubDate was missing or unreadable. `parse_feed` then places the
+    /// episode beside its neighbours in the feed; a lone item gets now.
+    #[serde(default)]
+    pub publish_date_estimated: bool,
     pub chapters_url: Option<String>,
     pub transcript_url: Option<String>,
     /// Per-episode `<itunes:image>`; usually `None`.
     pub artwork_url: Option<String>,
+}
+
+/// RFC 2822, and the near misses feeds publish: one-digit hours, minutes or
+/// seconds ("Mon, 29 Apr 2019 0:00:00 +0000"), a day name that doesn't match
+/// the date, "UTC" as the zone, or RFC 3339.
+pub fn parse_pub_date(text: &str) -> Option<DateTime<Utc>> {
+    let text = text.trim();
+    if let Ok(date) = DateTime::parse_from_rfc2822(text) {
+        return Some(date.with_timezone(&Utc));
+    }
+    if let Ok(date) = DateTime::parse_from_rfc3339(text) {
+        return Some(date.with_timezone(&Utc));
+    }
+    let without_day_name = text.split_once(',').map_or(text, |(_, rest)| rest);
+    let repaired: Vec<String> = without_day_name
+        .split_whitespace()
+        .map(|token| match token {
+            "UTC" | "Z" => "+0000".to_string(),
+            token if token.contains(':') => token.split(':').map(|part| format!("{part:0>2}")).collect::<Vec<_>>().join(":"),
+            token => token.to_string(),
+        })
+        .collect();
+    DateTime::parse_from_rfc2822(&repaired.join(" ")).ok().map(|date| date.with_timezone(&Utc))
+}
+
+/// Gives each episode without a readable date one just older than the
+/// nearest dated episode before it in the feed (or just newer than the next
+/// one), so it sorts beside its neighbours instead of as the newest.
+fn estimate_missing_dates(episodes: &mut [ParsedEpisode]) {
+    let known: Vec<Option<DateTime<Utc>>> = episodes.iter().map(|e| (!e.publish_date_estimated).then_some(e.publish_date)).collect();
+    for (i, episode) in episodes.iter_mut().enumerate() {
+        if !episode.publish_date_estimated {
+            continue;
+        }
+        let before = (0..i).rev().find_map(|j| known[j].map(|date| date - chrono::Duration::seconds((i - j) as i64)));
+        let after = || (i + 1..known.len()).find_map(|k| known[k].map(|date| date + chrono::Duration::seconds((k - i) as i64)));
+        if let Some(date) = before.or_else(after) {
+            episode.publish_date = date;
+        }
+    }
 }
 
 pub fn parse_feed(bytes: &[u8]) -> Result<ParsedFeed, FeedParseError> {
@@ -65,7 +109,7 @@ pub fn parse_feed(bytes: &[u8]) -> Result<ParsedFeed, FeedParseError> {
         }
     };
 
-    let episodes = channel
+    let mut episodes: Vec<ParsedEpisode> = channel
         .items()
         .iter()
         .filter_map(|item| match parse_episode(item) {
@@ -77,6 +121,7 @@ pub fn parse_feed(bytes: &[u8]) -> Result<ParsedFeed, FeedParseError> {
             }
         })
         .collect();
+    estimate_missing_dates(&mut episodes);
 
     Ok(ParsedFeed {
         title: channel.title().to_string(),
@@ -117,16 +162,12 @@ fn parse_episode(item: &rss::Item) -> Result<ParsedEpisode, FeedParseError> {
         .and_then(|it| it.duration())
         .and_then(parse_itunes_duration_to_ms);
 
-    let publish_date = item
-        .pub_date()
-        .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
-        .map(|d| d.with_timezone(&Utc))
-        .unwrap_or_else(|| {
-            // publish_date only orders episodes, so a missing one falls back
-            // to now.
-            tracing::warn!("episode {guid:?} has a missing or unparseable pubDate, defaulting to now");
-            Utc::now()
-        });
+    let parsed_date = item.pub_date().and_then(parse_pub_date);
+    if parsed_date.is_none() {
+        tracing::warn!("episode {guid:?} has a missing or unreadable pubDate: {:?}", item.pub_date());
+    }
+    let publish_date_estimated = parsed_date.is_none();
+    let publish_date = parsed_date.unwrap_or_else(Utc::now);
 
     let (chapters_url, transcript_url) = parse_podcast_namespace_extensions(item);
 
@@ -140,6 +181,7 @@ fn parse_episode(item: &rss::Item) -> Result<ParsedEpisode, FeedParseError> {
         file_size_bytes,
         duration_ms,
         publish_date,
+        publish_date_estimated,
         chapters_url,
         transcript_url,
         artwork_url,
@@ -447,6 +489,33 @@ mod tests {
         let feed = parse_feed(SAMPLE_FEED.as_bytes()).unwrap();
         let ep2 = feed.episodes.iter().find(|e| e.guid == "ep-2").unwrap();
         assert_eq!(ep2.duration_ms, Some(1958 * 1000));
+    }
+
+    #[test]
+    fn near_miss_pub_dates_are_read() {
+        let read = |s: &str| parse_pub_date(s).map(|d| d.to_rfc3339());
+        assert_eq!(read("Mon, 29 Apr 2019 0:00:00 +0000").as_deref(), Some("2019-04-29T00:00:00+00:00"));
+        assert_eq!(read("Fri, 29 Apr 2019 07:05:09 +0000").as_deref(), Some("2019-04-29T07:05:09+00:00"), "wrong day name");
+        assert_eq!(read("Mon, 29 Apr 2019 7:5 UTC").as_deref(), Some("2019-04-29T07:05:00+00:00"));
+        assert_eq!(read("2019-04-29T07:05:09Z").as_deref(), Some("2019-04-29T07:05:09+00:00"));
+        assert_eq!(read("sometime last week"), None);
+    }
+
+    #[test]
+    fn an_unreadable_date_sorts_beside_its_neighbours() {
+        let item = |guid: &str, date: &str| {
+            format!("<item><guid>{guid}</guid><title>{guid}</title><pubDate>{date}</pubDate><enclosure url=\"https://example.com/{guid}.mp3\" type=\"audio/mpeg\"/></item>")
+        };
+        let feed = format!(
+            "<?xml version=\"1.0\"?><rss version=\"2.0\"><channel><title>T</title>{}{}{}</channel></rss>",
+            item("new", "Mon, 06 Jan 2025 10:00:00 +0000"),
+            item("lost", "not a date"),
+            item("old", "Mon, 30 Dec 2024 10:00:00 +0000"),
+        );
+        let parsed = parse_feed(feed.as_bytes()).unwrap();
+        let lost = &parsed.episodes[1];
+        assert!(lost.publish_date_estimated);
+        assert!(lost.publish_date < parsed.episodes[0].publish_date && lost.publish_date > parsed.episodes[2].publish_date);
     }
 
     #[test]

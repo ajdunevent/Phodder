@@ -637,6 +637,7 @@ mod tests {
             file_size_bytes: Some(1),
             duration_ms: Some(2),
             publish_date: chrono::Utc::now(),
+            publish_date_estimated: false,
             chapters_url: None,
             transcript_url: None,
             artwork_url: None,

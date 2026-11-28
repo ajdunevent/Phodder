@@ -43,6 +43,14 @@
     <color type="primary" scheme_preference="dark">#3d3846</color>
   </branding>
   <releases>
+    <release version="0.2.4" date="2026-11-28">
+      <description>
+        <ul>
+          <li>Episodes whose feed writes dates slightly wrong (like a one-digit hour) are no longer treated as brand new. They had been listed out of order in Add Podcast previews and downloaded when subscribing.</li>
+          <li>Opening a podcast's Episodes tab corrects dates stored wrongly before this fix.</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.3" date="2026-11-25">
       <description>
         <ul>

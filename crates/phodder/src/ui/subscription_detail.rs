@@ -679,6 +679,16 @@ pub(super) fn show_subscription_detail(
                 };
                 match outcome {
                     Ok(parsed_feed) => {
+                        let corrected = phodder_core::open_connection(&db_path)
+                            .and_then(|conn| phodder_core::subscriptions::correct_publish_dates(&conn, subscription_id, &parsed_feed.episodes));
+                        match corrected {
+                            Ok(0) => {}
+                            Ok(n) => {
+                                tracing::info!("corrected the dates of {n} episode(s) of subscription {subscription_id}");
+                                let _ = command_tx.send(UiCommand::NotifyDataChanged);
+                            }
+                            Err(e) => tracing::warn!("couldn't correct episode dates for subscription {subscription_id}: {e}"),
+                        }
                         let list_widget = build_back_catalog_episode_list(
                             std::rc::Rc::new(parsed_feed.episodes),
                             subscription_id,

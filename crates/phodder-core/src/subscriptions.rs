@@ -87,6 +87,22 @@ pub fn insert_episode(
     Ok(conn.last_insert_rowid())
 }
 
+/// Rewrites stored dates that differ from the feed's readable ones: an
+/// episode stored while its date couldn't be read was dated when it was
+/// first seen. Refreshes stop at the first known episode, so the full list
+/// (a podcast's Episodes tab) is where these get fixed. Returns how many
+/// changed.
+pub fn correct_publish_dates(conn: &Connection, subscription_id: i64, episodes: &[ParsedEpisode]) -> rusqlite::Result<usize> {
+    let mut stmt = conn.prepare(
+        "UPDATE episodes SET publish_date = ?1 WHERE subscription_id = ?2 AND guid = ?3 AND publish_date != ?1",
+    )?;
+    let mut changed = 0;
+    for episode in episodes.iter().filter(|e| !e.publish_date_estimated) {
+        changed += stmt.execute(params![episode.publish_date.to_rfc3339(), subscription_id, episode.guid])?;
+    }
+    Ok(changed)
+}
+
 /// Conditional-GET bookkeeping and last-refresh time, recorded even when
 /// nothing was new.
 pub fn record_refresh(
@@ -569,6 +585,7 @@ mod tests {
             file_size_bytes: Some(1_000_000),
             duration_ms: Some(60_000),
             publish_date: Utc::now(),
+            publish_date_estimated: false,
             chapters_url: None,
             transcript_url: None,
             artwork_url: None,
